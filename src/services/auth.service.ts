@@ -9,6 +9,9 @@ const loginService = (props: LoginProps )=>{
     return "Successfully logged in!";
 }
 
+//get user by email 
+
+
 
 export {
     loginService,
