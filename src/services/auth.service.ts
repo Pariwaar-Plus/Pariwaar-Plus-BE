@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcrypt"
-import { Request, Response } from "express"
+const prisma = new PrismaClient();
 
 const hashingPassword = async (password: string) => {
     return await bcrypt.hash(password, 10);
@@ -9,8 +9,6 @@ const hashingPassword = async (password: string) => {
 const comparePassword = async (password: string, hashedPassword: string) => {
     return await bcrypt.compare(password, hashedPassword);
 }
-
-const prisma = new PrismaClient();
 
 const staffRegisterService = async (data: any )=>{
     const existingStaff = await prisma.user.findFirst({
@@ -24,23 +22,21 @@ const staffRegisterService = async (data: any )=>{
     }
 
     const hashedPassword = await hashingPassword(data.password);
-
+    data.password = hashedPassword;
     const createdStaff = await prisma.user.create({
-        data: {
-            name: data.name,
-            email: data.email,
-            password: hashedPassword,
-            country: data.country,
-            city: data.city,
-            contact: data.contact,
-            qualification: data.qualification,
-            experience: data.experience,
-
-        }
+        data:data,
+        // data: {
+        //     name: data.name,
+        //     email: data.email,
+        //     password: hashedPassword,
+        //     country: data.country,
+        //     city: data.city,
+        //     contact: data.contact,
+        //     qualification: data.qualification,
+        //     experience: data.experience,
+        // }
     })
-
     return createdStaff;
-
 }
 
 

@@ -21,6 +21,8 @@ model User {
   contact       String?
   qualification String?
   experience    Int?
+  roleId        Int
+  role          Role   @relation(fields: [roleId], references: [id])
 }
 
 model Role {
