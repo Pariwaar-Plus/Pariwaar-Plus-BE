@@ -12,14 +12,15 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  country  String
-  role      Role @relation(fields: [roleid], references: [id])
-  roleid    Int
-  createdAt DateTime @default(now())
+  id            String @id @default(uuid())
+  name          String
+  email         String @unique
+  password      String
+  country       String?
+  city          String?
+  contact       String?
+  qualification String?
+  experience    Int?
 }
 
 model Role {

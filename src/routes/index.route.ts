@@ -1,5 +1,5 @@
 import express from "express";
-import authRouter from "./auth.router";
+import authRouter from "./auth.route";
 import authenticationMiddleware from "../middlewares/authentication.middleware";
 import testRouter from "./test.router";
 
