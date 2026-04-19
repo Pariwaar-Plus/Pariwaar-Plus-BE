@@ -1,6 +1,9 @@
 import express from "express";
 import { register, login, refresh, logout, getMe } from "./auth.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
+import { authorizeRoles } from "../../middlewares/role.middleware";
+import { Role } from "@prisma/client"; // Import the Enum
+
 
 const router = express.Router();
 
@@ -8,7 +11,7 @@ router.get("/", (req, res) => {
     res.send("Welcome to the Auth API!");
 });
 
-router.post("/register", register);
+router.post("/register", authMiddleware, authorizeRoles(Role.ADMIN), register);
 router.post("/login", login);
 router.post("/refresh", refresh);
 router.get("/me", authMiddleware, getMe);
