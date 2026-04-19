@@ -16,18 +16,53 @@ model User {
   name          String
   email         String @unique
   password      String
-  country       String?
-  city          String?
-  contact       String?
-  qualification String?
-  experience    Int?
-  roleId        Int
-  role          Role   @relation(fields: [roleId], references: [id])
+  role          Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  refreshTokens RefreshToken[]
+
+  // 🔗 Role-specific relations
+  careAgent CareAgent?
+  client    Client?
+
 }
 
-model Role {
-  id    Int    @id @default(autoincrement())
-  name  String @unique
-  users User[]
+enum Role {
+  ADMIN
+  CARE_AGENT
+  CLIENT
+}
+
+model CareAgent {
+  id            String @id @default(uuid())
+  userId        String @unique
+
+  qualification String  
+  experience    Int
+  contact       String
+  city          String?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Client {
+  id        String @id @default(uuid())
+  userId    String @unique
+
+  country   String?
+  city      String?
+  contact   String?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 

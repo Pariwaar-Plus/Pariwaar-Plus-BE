@@ -1,24 +1,40 @@
 import prisma from "../src/config/prisma";
+import bcrypt from "bcrypt";
 
 async function main() {
-  await prisma.role.createMany({
-    data: [
-      { id: 1, name: "Admin" },
-      { id: 2, name: "Staff" },
-      { id: 3, name: "User" }
-    ],
-    skipDuplicates: true
+  const adminEmail = "admin@system.com";
+
+  // 1. Check if admin already exists
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
   });
 
-  console.log("Roles seeded successfully");
+  if (existingAdmin) {
+    console.log("Admin already exists");
+    return;
+  }
+
+  // 2. Hash password
+  const hashedPassword = await bcrypt.hash("admin123", 10);
+
+  // 3. Create admin user
+  const admin = await prisma.user.create({
+    data: {
+      name: "Super Admin",
+      email: adminEmail,
+      password: hashedPassword,
+      role: "ADMIN",
+    },
+  });
+
+  console.log("Admin created successfully:", admin.email);
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error("Seeding failed:", e);
-    await prisma.$disconnect();
+  .catch((e) => {
+    console.error("Seed error:", e);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

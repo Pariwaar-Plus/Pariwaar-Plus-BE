@@ -1,3 +1,0 @@
-PORT=5001
-
-DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/remote_care?schema=public"
