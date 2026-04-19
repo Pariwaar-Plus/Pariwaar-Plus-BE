@@ -12,6 +12,10 @@ import { hashPassword, comparePassword } from "../../utils/hash";
  */
 
 export const register = async (data: any) => {
+
+  if (data.role === "ADMIN") {
+    throw new Error("Admin registration is not allowed through this endpoint");
+  }
   const existing = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -161,4 +165,24 @@ export const logoutAll = async (userId: string) => {
   await prisma.refreshToken.deleteMany({
     where: { userId },
   });
+};
+
+/**
+ * GET ME
+ * Fetches the current user's profile based on their role.
+ */
+export const getMe = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      careAgent: true, // Prisma will return null if the user isn't a CareAgent
+      client: true,    // Prisma will return null if the user isn't a Client
+    },
+  });
+
+  if (!user) throw new Error("User not found");
+
+  // Remove the password before sending to frontend
+  const { password: _, ...userWithoutPassword } = user;
+  return userWithoutPassword;
 };

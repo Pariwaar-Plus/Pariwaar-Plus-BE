@@ -78,3 +78,15 @@ export const logout = async (req: Request, res: Response) => {
     res.status(400).json({ message: e.message });
   }
 };
+
+export const getMe = async (req: any, res: Response) => {
+  try {
+    // req.user was populated by your authMiddleware
+    const userId = req.user.id; 
+    
+    const user = await authService.getMe(userId);
+    res.json(user);
+  } catch (e: any) {
+    res.status(404).json({ message: e.message });
+  }
+};
