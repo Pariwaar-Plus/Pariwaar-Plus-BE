@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import * as authService from "./auth.service";
 
-export const register = async (req: Request, res: Response) => {
+export const registerCareAgent = async (req: Request, res: Response) => {
   try {
     if (!req.body.email || !req.body.password) {
         return res.status(400).json({ message: "Invalid input" });

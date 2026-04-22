@@ -41,8 +41,12 @@ model CareAgent {
   experience    Int
   contact       String
   city          String?
+  ward          String?
+  tole          String?
 
   user User @relation(fields: [userId], references: [id])
+  assignments   CareAssignment[]
+  visitLogs     VisitLog[]
 }
 
 model Client {
@@ -51,9 +55,77 @@ model Client {
 
   country   String?
   city      String?
+  address   String?
   contact   String?
 
   user User @relation(fields: [userId], references: [id])
+  careReceivers CareReceiver[]
+}
+
+model CareReceiver {
+  id                String   @id @default(uuid())
+  clientId          String
+  
+  // Parent details
+  name              String
+  age               Int
+  gender            String
+  contactNumber     String
+  
+  // Address
+  city              String
+  ward              String?
+  tole              String?
+
+  // Medical info
+  medicalHistory    String?  @db.Text
+  existingConditions String[]
+
+  client            Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignments       CareAssignment[]
+  visitLogs         VisitLog[]       
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+model CareAssignment {
+  id             String       @id @default(uuid())
+  careReceiverId String
+  careAgentId    String
+  
+  careReceiver   CareReceiver @relation(fields: [careReceiverId], references: [id])
+  careAgent      CareAgent    @relation(fields: [careAgentId], references: [id])
+
+  createdAt      DateTime     @default(now())
+
+  @@unique([careReceiverId, careAgentId]) // Admin assigns care agents 
+}
+
+model VisitLog {
+  id                String   @id @default(uuid())
+  careReceiverId    String
+  careAgentId       String
+  
+  // Health Monitoring Module
+  visitDate         DateTime @default(now())
+  
+  // Vital Signs
+  systolicBP        Int      
+  diastolicBP       Int
+  bloodSugar        Float?   
+  oxygenLevel       Int?     
+  weight            Float?   
+  
+  // Qualitative Data
+  generalNotes      String?  @db.Text 
+  medicationAdherence Boolean 
+  medicationNotes   String?  
+  
+  careReceiver      CareReceiver @relation(fields: [careReceiverId], references: [id])
+  careAgent         CareAgent    @relation(fields: [careAgentId], references: [id])
+
+  createdAt         DateTime     @default(now())
 }
 
 model RefreshToken {
