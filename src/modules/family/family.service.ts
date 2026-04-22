@@ -106,3 +106,61 @@ export const createFamilyAccount = async (adminId: string, data: CreateFamilyAcc
     throw e;
     }
 };
+
+
+/**
+ * For the Client: Find by User ID (from the JWT)
+ */
+export const getFamilyByClientId = async (userId: string) => {
+  // We search by userId because the Client (child) logs in with their User account
+    const clientWithParents = await prisma.client.findUnique({
+    where: { userId },
+    include: {
+        careReceivers: true // This matches the relation name in your Prisma schema
+    }
+    });
+
+    if (!clientWithParents) throw new Error("Family account not found for this user");
+    return clientWithParents;
+};
+
+/**
+ * For the Admin: Find by Client Profile ID (from the URL param)
+ */
+export const getFamilyByProfileId = async (profileId: string) => {
+    const client = await prisma.client.findUnique({
+    where: { id: profileId },
+    include: { 
+        careReceivers: true,
+        user: { select: { name: true, email: true } } 
+    }
+    });
+    if (!client) throw new Error("Client profile not found");
+    return client;
+};
+
+/**
+ * ADD Parent to existing Family
+ * Allows adding another parent to an existing client account
+ */
+export const addParentToFamily = async (clientId: string, parentData: any) => {
+  // 1. Verify client exists
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) throw new Error("Client not found");
+
+    // 2. Create the new Care Receiver linked to this client
+    return await prisma.careReceiver.create({
+    data: {
+        clientId: client.id,
+        name: parentData.name,
+        age: parentData.age,
+        gender: parentData.gender,
+        city: parentData.city,
+        ward: parentData.ward,
+        tole: parentData.tole,
+        contactNumber: parentData.contactNumber,
+        medicalHistory: parentData.medicalHistory,
+        existingConditions: parentData.existingConditions,
+    }
+    });
+};
