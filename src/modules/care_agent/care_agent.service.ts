@@ -59,3 +59,17 @@ export const updateCareAgent = async (userId: string, data: any) => {
     },
   });
 };
+
+/**
+ * For the Admin: Find by CareAgent Profile ID (from the URL param)
+ */
+export const getCareAgentByProfileId = async (profileId: string) => {
+    const careAgent = await prisma.careAgent.findUnique({
+    where: { id: profileId },
+    include: { 
+        user: { select: { name: true, email: true } } 
+    }
+    });
+    if (!careAgent) throw new Error("Care Agent profile not found");
+    return careAgent;
+};

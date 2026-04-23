@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as service from "./care_agent.service";
+import { AuthRequest } from "../../@types";
 
 /**
  * ADMIN: Get all care agents
@@ -47,5 +48,20 @@ export const updateMyProfile = async (req: any, res: Response) => {
   } catch (err: any) {
     // If Prisma fails due to validation or missing record
     res.status(400).json({ message: err.message });
+  }
+};
+
+/**
+ * GET /api/care-agent/admin/view/:careAgentId
+ * Logic: "Show me the details for a specific careAgent"
+ */
+export const adminGetCareAgent = async (req: AuthRequest, res: Response) => {
+  try {
+    const careAgentId = req.params.careAgentId as string;
+    const careAgent = await service.getCareAgentByProfileId(careAgentId);
+    
+    res.status(200).json({ success: true, data: careAgent });
+  } catch (err: any) {
+    res.status(404).json({ success: false, message: err.message });
   }
 };

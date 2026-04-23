@@ -186,3 +186,31 @@ export const getMe = async (userId: string) => {
   const { password: _, ...userWithoutPassword } = user;
   return userWithoutPassword;
 };
+
+
+
+/**
+ * Change Password
+ */
+
+export const changePassword = async (userId: string, data: any) => {
+  const { oldPassword, newPassword } = data;
+
+  // 1. Fetch user
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("User not found");
+
+  // 2. Verify old password
+  const isMatch = await comparePassword(oldPassword, user.password);
+  if (!isMatch) throw new Error("Incorrect old password");
+
+  // 3. Hash and update new password
+  const hashedNewPassword = await hashPassword(newPassword);
+  
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedNewPassword },
+  });
+
+  return { message: "Password updated successfully" };
+};

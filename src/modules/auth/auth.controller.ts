@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as authService from "./auth.service";
+import { AuthRequest } from "../../@types";
 
 export const registerCareAgent = async (req: Request, res: Response) => {
   try {
@@ -88,5 +89,27 @@ export const getMe = async (req: any, res: Response) => {
     res.json(user);
   } catch (e: any) {
     res.status(404).json({ message: e.message });
+  }
+};
+
+
+
+export const changePassword = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as unknown as AuthRequest;
+    const userId = authReq.user!.id;
+
+    console.log("Request body:", req.body);
+    const result = await authService.changePassword(userId, req.body);
+
+    res.status(200).json({
+      success: true,
+      message: result.message
+    });
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
   }
 };
