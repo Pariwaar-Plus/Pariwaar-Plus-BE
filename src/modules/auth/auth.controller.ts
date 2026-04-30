@@ -2,17 +2,6 @@ import { Request, Response } from "express";
 import * as authService from "./auth.service";
 import { AuthRequest } from "../../@types";
 
-export const registerCareAgent = async (req: Request, res: Response) => {
-  try {
-    if (!req.body.email || !req.body.password) {
-        return res.status(400).json({ message: "Invalid input" });
-    }
-    const user = await authService.register(req.body);
-    res.status(201).json(user);
-  } catch (e: any) {
-    res.status(400).json({ message: e.message });
-  }
-};
 
 export const login = async (req: Request, res: Response) => {
   try {
