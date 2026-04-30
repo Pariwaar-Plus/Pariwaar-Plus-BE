@@ -36,9 +36,12 @@ model User {
   updatedAt DateTime @updatedAt
   refreshTokens RefreshToken[]
 
-  // 🔗 Role-specific relations
+  // Role-specific relations
   careAgent CareAgent?
   client    Client?
+
+  deletedAt DateTime?
+
 
 }
 
@@ -62,6 +65,8 @@ model CareAgent {
   user User @relation(fields: [userId], references: [id])
   assignments   CareAssignment[]
   visitLogs     VisitLog[]
+
+  deletedAt DateTime?
 }
 
 model Client {
@@ -75,6 +80,9 @@ model Client {
 
   user User @relation(fields: [userId], references: [id])
   careReceivers CareReceiver[]
+
+  deletedAt DateTime?
+
 }
 
 model CareReceiver {

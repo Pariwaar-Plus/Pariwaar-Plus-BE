@@ -6,62 +6,6 @@ import {
 } from "../../utils/jwt";
 import { hashPassword, comparePassword } from "../../utils/hash";
 
-/**
- * REGISTER (CLIENT / CARE_AGENT only)
- * Uses a Transaction to ensure User and Profile are created together.
- */
-
-export const register = async (data: any) => {
-
-  if (data.role === "ADMIN") {
-    throw new Error("Admin registration is not allowed through this endpoint");
-  }
-  const existing = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
-
-  if (existing) throw new Error("User already exists");
-
-  const hashed = await hashPassword(data.password);
-  // Use $transaction to prevent "orphan" users if profile creation fails
-  const newUser = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        password: hashed,
-        role: data.role,
-      },
-    });
-
-    if (data.role === "CARE_AGENT") {
-      await tx.careAgent.create({
-        data: {
-          userId: user.id,
-          qualification: data.qualification,
-          experience: data.experience,
-          contact: data.contact,
-          city: data.city,
-        },
-      });
-    } else if (data.role === "CLIENT") {
-      await tx.client.create({
-        data: {
-          userId: user.id,
-          country: data.country,
-          city: data.city,
-          contact: data.contact,
-        },
-      });
-    }
-
-    return user;
-  });
-  // Remove password from response
-  const { password: _, ...userWithoutPassword } = newUser;
-  return userWithoutPassword;
-};
-
 
 /**
  * LOGIN
@@ -70,9 +14,21 @@ export const register = async (data: any) => {
 export const login = async (email: string, password: string) => {
   const user = await prisma.user.findUnique({
     where: { email },
+    include: {
+      careAgent: true, 
+      client: true,    
+    },
   });
 
   if (!user) throw new Error("Invalid email");
+
+  if (user.role === 'CLIENT' && user.client?.deletedAt) {
+    throw new Error("This account has been deactivated. Please contact support.");
+  }
+  
+  if (user.role === 'CARE_AGENT' && user.careAgent?.deletedAt) {
+    throw new Error("This agent account is no longer active.");
+  }
 
   const valid = await comparePassword(password, user.password);
 

@@ -69,22 +69,13 @@ export const registerCareAgent = async (data: CareAgentDTO) => {
 };
 
 
-/**
- * Get all care agents
- * Useful for Admin dashboards or Client browsing
- */
-export const getAllCareAgents = async () => {
-  return prisma.careAgent.findMany({
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
+// Get all care agents for Admin dashboards
+export const getActiveCareAgents = async () => {
+  return await prisma.careAgent.findMany({
+    where: {
+      deletedAt: null
     },
+    include: { user: true }
   });
 };
 
@@ -178,4 +169,32 @@ export const getMyAssignedCareReceivers = async (userId: string) => {
   });
 
   return assignments
+};
+
+// Soft Delete care agent profile
+export const deleteCareAgent = async (careAgentId: string) => {
+  // First, find the agent to get the linked userId
+  const agent = await prisma.careAgent.findUnique({
+    where: { id: careAgentId },
+    select: { userId: true }
+  });
+
+  if (!agent) throw new Error("Care Agent not found");
+
+  // Use a transaction to soft-delete both records
+  return await prisma.$transaction(async (tx) => {
+    // 1. Soft delete the CareAgent profile
+    const updatedAgent = await tx.careAgent.update({
+      where: { id: careAgentId },
+      data: { deletedAt: new Date() },
+    });
+
+    // 2. Soft delete the User
+    await tx.user.update({
+      where: { id: agent.userId },
+      data: { deletedAt: new Date() },
+    });
+
+    return updatedAgent;
+  });
 };

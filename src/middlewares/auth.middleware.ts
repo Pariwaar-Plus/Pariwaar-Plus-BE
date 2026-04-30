@@ -10,11 +10,7 @@ interface AuthRequest extends Request {
   };
 }
 
-export const authMiddleware = (
-  req: AuthRequest, 
-  res: Response, 
-  next: NextFunction
-) => {
+export const authMiddleware = ( req: AuthRequest, res: Response, next: NextFunction) => {
   const header = req.headers.authorization;
 
   // 1. Check if header exists and starts with "Bearer "

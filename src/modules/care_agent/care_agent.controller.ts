@@ -22,7 +22,7 @@ export const registerCareAgent = async (req: Request, res: Response) => {
  */
 export const getAll = async (req: Request, res: Response) => {
   try {
-    const agents = await service.getAllCareAgents();
+    const agents = await service.getActiveCareAgents();
     res.json(agents);
   } catch (err: any) {
     res.status(500).json({ message: "Internal server error" });
@@ -104,3 +104,28 @@ export const getMyAssignments = async (req: Request, res: Response) => {
     });
     }
 };
+
+export const deleteCareAgent = async (req: AuthRequest, res: Response) => {
+  
+  const careAgentId = req.params.id as string;
+  try {
+    if (req.user?.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+    }
+
+    await service.deleteCareAgent(careAgentId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Care Agent and associated user account have been deactivated.",
+    });
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Failed to deactivate Care Agent",
+    });
+  }
+};
+
+
+
