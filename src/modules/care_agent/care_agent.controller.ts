@@ -65,3 +65,27 @@ export const adminGetCareAgent = async (req: AuthRequest, res: Response) => {
     res.status(404).json({ success: false, message: err.message });
   }
 };
+
+
+// Get assigned care receivers for care agent
+export const getMyAssignments = async (req: Request, res: Response) => {
+    try {
+    const authReq = req as unknown as AuthRequest;
+
+    // We use the ID from the JWT token (req.user.id)
+    const userId = authReq.user!.id;
+
+    const assignments = await service.getMyAssignedCareReceivers(userId);
+
+    res.status(200).json({
+        success: true,
+        count: assignments.length,
+        data: assignments
+    });
+    } catch (err: any) {
+    res.status(400).json({
+        success: false,
+        message: err.message
+    });
+    }
+};

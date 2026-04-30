@@ -15,6 +15,17 @@ interface ParentData{
     medicalHistory?: string;
     existingConditions: string[];
 }
+
+export interface ClientDTO {
+    name: string;
+    email: string;
+    password?: string; 
+
+    country: string;
+    city: string;
+    phone: string;     
+    address: string;
+}
 export interface CreateFamilyAccountDTO {
     clientData: {
         name: string;
@@ -33,4 +44,20 @@ export interface AuthRequest extends Request {
         role: string;
         email: string;
     };
+}
+
+export interface CreateVisitLogDTO {
+    careReceiverId: string;
+
+    // Vital Signs
+    systolicBP: number;
+    diastolicBP: number;
+    bloodSugar?: number;
+    oxygenLevel?: number;
+    weight?: number;
+
+    // Qualitative Data
+    generalNotes?: string;
+    medicationAdherence: boolean;
+    medicationNotes?: string;
 }

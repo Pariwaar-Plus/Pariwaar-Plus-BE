@@ -73,3 +73,40 @@ export const getCareAgentByProfileId = async (profileId: string) => {
     if (!careAgent) throw new Error("Care Agent profile not found");
     return careAgent;
 };
+
+/**
+ * CARE AGENT: View my assigned Care Receivers for today's visits
+ */
+export const getMyAssignedCareReceivers = async (userId: string) => {
+  // 1. Find the agent's profile ID using their logged-in User ID
+  const agent = await prisma.careAgent.findUnique({
+    where: { userId }
+  });
+
+  if (!agent) throw new Error("Care Agent profile not found");
+
+  // 2. Get all active assignments
+  const assignments = await prisma.careAssignment.findMany({
+    where: { 
+      careAgentId: agent.id,
+      status: 'ACTIVE'
+    },
+    include: {
+      careReceiver: {
+        select: {
+          id: true,
+          name: true,
+          age: true,
+          gender: true,
+          city: true,
+          ward: true,
+          tole: true,
+          contactNumber: true,
+          existingConditions: true
+        }
+      }
+    } 
+  });
+
+  return assignments
+};
