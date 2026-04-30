@@ -11,20 +11,11 @@ export const createFamily = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { clientData, parentsData } = req.body;
-
-    if (!clientData || !parentsData || !Array.isArray(parentsData) || parentsData.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid input",
-      });
-    }
-
-    const result = await familyService.createFamilyAccount(req.user.id, req.body);
+    const result = await familyService.registerClient(req.user.id, req.body);
 
     return res.status(201).json({
       success: true,
-      message: "Family account created successfully.",
+      message: "Family/Client account created successfully.",
       data: result,
     });
 
@@ -78,6 +69,30 @@ export const addParent = async (req: any, res: Response) => {
       success: true, 
       message: "Parent added to family successfully", 
       data: parent 
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+
+/**
+ * Assign care agent to care receiver
+ */ 
+export const assignAgent = async (req: AuthRequest, res: Response) => {
+  try {
+    const { careAgentId, careReceiverId } = req.body;
+
+    if (!careAgentId || !careReceiverId) {
+      return res.status(400).json({ success: false, message: "careAgentId and careReceiverId are required" });
+    }
+
+    const assignment = await familyService.assignAgentToParent(careAgentId, careReceiverId);
+
+    res.status(201).json({
+      success: true,
+      message: "Assignment successful",
+      data: assignment
     });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });

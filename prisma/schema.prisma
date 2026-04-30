@@ -11,6 +11,21 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Relationship {
+  SON
+  DAUGHTER
+  RELATIVE
+  LEGAL_GUARDIAN
+}
+
+
+
 model User {
   id            String @id @default(uuid())
   name          String
@@ -71,6 +86,7 @@ model CareReceiver {
   age               Int
   gender            String
   contactNumber     String
+  relationship Relationship?
   
   // Address
   city              String
@@ -87,19 +103,29 @@ model CareReceiver {
 
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
+
+  @@index([clientId])
 }
 
 model CareAssignment {
-  id             String       @id @default(uuid())
+  id             String           @id @default(uuid())
   careReceiverId String
   careAgentId    String
-  
+
+  status         AssignmentStatus @default(ACTIVE)
+
   careReceiver   CareReceiver @relation(fields: [careReceiverId], references: [id])
   careAgent      CareAgent    @relation(fields: [careAgentId], references: [id])
 
-  createdAt      DateTime     @default(now())
+  assignedAt     DateTime @default(now())
 
-  @@unique([careReceiverId, careAgentId]) // Admin assigns care agents 
+  @@unique([careReceiverId, careAgentId])
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
 }
 
 model VisitLog {

@@ -3,7 +3,8 @@ import {
   getAll,
   getMyProfile,
   updateMyProfile,
-  adminGetCareAgent
+  adminGetCareAgent,
+  getMyAssignments
 } from "./care_agent.controller";
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
@@ -42,6 +43,14 @@ router.patch( // Changed from .put to .patch for partial updates
   updateMyProfile
 );
 
+// CARE_AGENT: Fetch their own assignments
+router.get(
+  "/me/assignments",
+  authMiddleware,
+  authorizeRoles(Role.CARE_AGENT), // Use Enum
+  getMyAssignments
+);
+
 // --- ADMIN ROUTES ---
 // Operations team viewing any CareAgent by ID
 router.get(
@@ -50,5 +59,7 @@ router.get(
   authorizeRoles(Role.ADMIN), 
   adminGetCareAgent
 );
+
+
 
 export default router;
