@@ -1,4 +1,73 @@
+import { Role } from "@prisma/client";
 import prisma from "../../config/prisma";
+import { hashPassword } from "../../utils/hash";
+import crypto from "crypto";
+import { sendWelcomeEmail } from "../../utils/email.util";
+import { CareAgentDTO } from "../../@types";
+
+
+
+export const registerCareAgent = async (data: CareAgentDTO) => {
+  const existing = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (existing) throw new Error("User already exists");
+
+  const tempPassword = data.password || crypto.randomBytes(8).toString("hex");
+  const hashed = await hashPassword(tempPassword);
+  try{
+    // Use $transaction to prevent "orphan" users if profile creation fails
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: data.name,
+          email: data.email,
+          password: hashed,
+          role: Role.CARE_AGENT,
+        },
+      });
+
+      const careAgent = await tx.careAgent.create({
+        data: {
+          userId: user.id,
+          qualification: data.qualification,
+          experience: data.experience,
+          contact: data.contact,
+          ward: data.ward,
+          tole: data.tole,
+          city: data.city
+        },
+      });
+        
+
+      return {
+        user: {id: user.id, name: user.name, email: user.email},
+        careAgent
+      };
+    });
+
+    // Post-Transaction: Send Email
+
+    try {
+        await sendWelcomeEmail(result.user.email, result.user.name, tempPassword);
+    } catch (error) {
+        console.error("Welcome email failed to send:", error);
+    }
+    
+    return {
+      ...result,
+      tempPassword
+    }
+  } catch (e: any){
+    if (e.code === "P2002") {
+      throw new Error("User with this email already exists");
+    }
+    throw new Error(e.message);
+  }
+
+};
+
 
 /**
  * Get all care agents

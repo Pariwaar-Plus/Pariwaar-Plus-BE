@@ -2,6 +2,21 @@ import { Request, Response } from "express";
 import * as service from "./care_agent.service";
 import { AuthRequest } from "../../@types";
 
+
+
+export const registerCareAgent = async (req: Request, res: Response) => {
+  try {
+    if (!req.body.email || !req.body.name) {
+        return res.status(400).json({ message: "Invalid input" });
+    }
+    const user = await service.registerCareAgent(req.body);
+    res.status(201).json(user);
+  } catch (e: any) {
+    res.status(400).json({ message: e.message });
+  }
+};
+
+
 /**
  * ADMIN: Get all care agents
  */

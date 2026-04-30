@@ -4,7 +4,8 @@ import {
   getMyProfile,
   updateMyProfile,
   adminGetCareAgent,
-  getMyAssignments
+  getMyAssignments,
+  registerCareAgent
 } from "./care_agent.controller";
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
@@ -12,6 +13,9 @@ import { authorizeRoles } from "../../middlewares/role.middleware";
 import { Role } from "@prisma/client"; // Import the Enum
 
 const router = express.Router();
+
+router.post("/registerCareAgent", authMiddleware, authorizeRoles(Role.ADMIN), registerCareAgent);
+
 
 /**
  * ADMIN: Fetch all agent data for the dashboard
