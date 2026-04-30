@@ -26,6 +26,18 @@ export interface ClientDTO {
     phone: string;     
     address: string;
 }
+
+export interface CareAgentDTO {
+    name: string;
+    email: string;
+    password?: string;
+    qualification: string;
+    experience: number;
+    contact: string;
+    city: string;
+    ward: string;
+    tole: string;
+}
 export interface CreateFamilyAccountDTO {
     clientData: {
         name: string;
