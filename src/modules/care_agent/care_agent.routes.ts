@@ -5,7 +5,8 @@ import {
   updateMyProfile,
   adminGetCareAgent,
   getMyAssignments,
-  registerCareAgent
+  registerCareAgent,
+  deleteCareAgent
 } from "./care_agent.controller";
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
@@ -14,36 +15,35 @@ import { Role } from "@prisma/client"; // Import the Enum
 
 const router = express.Router();
 
-router.post("/registerCareAgent", authMiddleware, authorizeRoles(Role.ADMIN), registerCareAgent);
+router.post(
+  "/registerCareAgent", 
+  authMiddleware,
+  authorizeRoles(Role.ADMIN), 
+  registerCareAgent
+);
 
 
-/**
- * ADMIN: Fetch all agent data for the dashboard
- */
+// ADMIN: Fetch all agent data for the dashboard
 router.get(
   "/",
   authMiddleware,
-  authorizeRoles(Role.ADMIN), // Use Enum instead of "ADMIN"
+  authorizeRoles(Role.ADMIN),  
   getAll
 );
 
-/**
- * CARE_AGENT: Fetch their own professional profile
- */
+// CARE_AGENT: Fetch their own professional profile
 router.get(
   "/me",
   authMiddleware,
-  authorizeRoles(Role.CARE_AGENT), // Use Enum
+  authorizeRoles(Role.CARE_AGENT), 
   getMyProfile
 );
 
-/**
- * CARE_AGENT: Update professional details
- */
-router.patch( // Changed from .put to .patch for partial updates
+// CARE_AGENT: Update profile details
+router.patch( 
   "/me",
   authMiddleware,
-  authorizeRoles(Role.CARE_AGENT), // Use Enum
+  authorizeRoles(Role.CARE_AGENT), 
   updateMyProfile
 );
 
@@ -51,12 +51,11 @@ router.patch( // Changed from .put to .patch for partial updates
 router.get(
   "/me/assignments",
   authMiddleware,
-  authorizeRoles(Role.CARE_AGENT), // Use Enum
+  authorizeRoles(Role.CARE_AGENT), 
   getMyAssignments
 );
 
-// --- ADMIN ROUTES ---
-// Operations team viewing any CareAgent by ID
+// ADMIN: viewing any CareAgent by ID
 router.get(
   "/admin/view/:careAgentId", 
   authMiddleware, 
@@ -64,6 +63,11 @@ router.get(
   adminGetCareAgent
 );
 
-
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("ADMIN"), // Ensure only Admins can hit this
+  deleteCareAgent
+);
 
 export default router;

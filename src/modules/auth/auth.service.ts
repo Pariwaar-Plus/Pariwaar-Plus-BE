@@ -14,9 +14,21 @@ import { hashPassword, comparePassword } from "../../utils/hash";
 export const login = async (email: string, password: string) => {
   const user = await prisma.user.findUnique({
     where: { email },
+    include: {
+      careAgent: true, 
+      client: true,    
+    },
   });
 
   if (!user) throw new Error("Invalid email");
+
+  if (user.role === 'CLIENT' && user.client?.deletedAt) {
+    throw new Error("This account has been deactivated. Please contact support.");
+  }
+  
+  if (user.role === 'CARE_AGENT' && user.careAgent?.deletedAt) {
+    throw new Error("This agent account is no longer active.");
+  }
 
   const valid = await comparePassword(password, user.password);
 
