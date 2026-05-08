@@ -94,6 +94,38 @@ export const getFamilyByClientId = async (userId: string) => {
 };
 
 /**
+ * For the Admin: Get list of all families
+ */
+export const getAllFamilies = async () => {
+    return await prisma.client.findMany({
+    where: {
+        // Only get clients who are not soft-deleted
+        deletedAt: null,
+    },
+    include: {
+        user: {
+        select: {
+            id: true,
+            name: true,
+            email: true,
+        },
+        },
+        careReceivers: {
+        where: {
+            deletedAt: null, // Only show active parents
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+        },
+    },
+    orderBy: {
+        id: "desc",
+    },
+    });
+};
+
+/**
  * For the Admin: Find by Client Profile ID (from the URL param)
  */
 export const getFamilyByProfileId = async (profileId: string) => {

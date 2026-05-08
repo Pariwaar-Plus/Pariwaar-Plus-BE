@@ -1,5 +1,5 @@
 import express from "express";
-import { createFamily, getMyFamily, addParent, adminGetFamily, assignAgent } from "./family.controller";
+import { createFamily, getMyFamily, addParent, adminGetFamily, assignAgent, getFamilies } from "./family.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
 import { Role } from "@prisma/client";
@@ -29,6 +29,14 @@ router.get(
   authMiddleware, 
   authorizeRoles(Role.ADMIN), 
   adminGetFamily
+);
+
+// @desc    List all clients and their parents (Admin only)
+router.get(
+  "/all",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  getFamilies
 );
 
 // Add a parent to a specific client (Admin only)
