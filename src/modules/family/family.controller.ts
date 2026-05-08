@@ -57,6 +57,32 @@ export const adminGetFamily = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Get all families by admin
+export const getFamilies = async (req: AuthRequest, res: Response) => {
+  try {
+    // 1. Authorization Check
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Admin access required",
+      });
+    }
+
+    const families = await familyService.getAllFamilies();
+
+    return res.status(200).json({
+      success: true,
+      count: families.length,
+      data: families,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to retrieve family list",
+    });
+  }
+};
+
 /**
  * Add a Parent
  */
