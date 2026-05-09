@@ -22,6 +22,22 @@ router.post(
   createFamily
 );
 
+// --- ADMIN ROUTES ---
+// Operations team viewing any family by ID
+router.get(
+  "/admin/view/:clientId", 
+  authMiddleware, 
+  authorizeRoles(Role.ADMIN), 
+  adminGetFamily
+);
+
+// @desc    List all clients and their parents (Admin only)
+router.get(
+  "/all",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  getFamilies
+);
 router.patch(
   "/:clientId",
   authMiddleware,
@@ -46,22 +62,6 @@ router.get(
   getMyFamily
 );
 
-// --- ADMIN ROUTES ---
-// Operations team viewing any family by ID
-router.get(
-  "/admin/view/:clientId", 
-  authMiddleware, 
-  authorizeRoles(Role.ADMIN), 
-  adminGetFamily
-);
-
-// @desc    List all clients and their parents (Admin only)
-router.get(
-  "/all",
-  authMiddleware,
-  authorizeRoles(Role.ADMIN),
-  getFamilies
-);
 
 // Add a parent to a specific client (Admin only)
 router.post(
