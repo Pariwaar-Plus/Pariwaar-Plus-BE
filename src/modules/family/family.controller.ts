@@ -189,3 +189,50 @@ export const getCareReceiverById = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+export const deleteParent = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Only admins can delete profiles",
+      });
+    }
+
+    const id = req.params.careReceiverId as string;
+    await familyService.softDeleteCareReceiver(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Parent profile deactivated successfully.",
+    });
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Failed to deactivate parent profile",
+    });
+  }
+};
+
+export const updateParent = async (req: AuthRequest, res: Response) => {
+  try {
+    // Admin check (or check if user owns this client)
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+
+    const id = req.params.careReceiverId as string;
+    const updatedProfile = await familyService.updateCareReceiver(id, req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: "Parent profile updated successfully",
+      data: updatedProfile,
+    });
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Failed to update profile",
+    });
+  }
+};

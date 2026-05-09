@@ -7,7 +7,9 @@ import { createFamily,
   getFamilies, 
   getCareReceiverById,
   deleteClient,
-  updateClient
+  updateClient,
+  deleteParent,
+  updateParent
 } from "./family.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
@@ -53,7 +55,6 @@ router.delete(
   deleteClient
 );
 
-// --- CLIENT ROUTES ---
 // Child abroad viewing their own family
 router.get(
   "/my-family", 
@@ -85,6 +86,22 @@ router.get(
   authMiddleware,
   authorizeRoles(Role.ADMIN),
   getCareReceiverById
+);
+
+// @route   DELETE /api/care-receivers/:id
+router.delete(
+  "/care-receivers/:careReceiverId",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  deleteParent
+);
+
+// @route   PATCH /api/care-receivers/:id
+router.patch(
+  "/care-receivers/:careReceiverId",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  updateParent
 );
 
 

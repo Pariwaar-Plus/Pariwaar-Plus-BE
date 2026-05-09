@@ -198,7 +198,9 @@ export const getFamilyByProfileId = async (profileId: string) => {
 export const addParentToFamily = async (clientId: string, parentData: any) => {
     // 1. Verify client exists
     const client = await prisma.client.findUnique({ where: { id: clientId } });
-    if (!client) throw new Error("Client profile not found.");
+    if (!client || client.deletedAt) {
+        throw new Error("Client profile not found or is inactive.");
+    }
 
     // 2. Create the new Care Receiver with data sanitization
 
@@ -308,4 +310,43 @@ export const getCareReceiverById = async (id: string) => {
     }
 
     return careReceiver;
+};
+
+export const softDeleteCareReceiver = async (id: string) => {
+    const parent = await prisma.careReceiver.findUnique({
+        where: { id },
+    });
+
+    if (!parent) throw new Error("Care Receiver not found");
+
+    return await prisma.careReceiver.update({
+        where: { id },
+        data: { 
+            deletedAt: new Date() 
+        },
+    });
+};
+
+export const updateCareReceiver = async (id: string, updateData: any) => {
+    const parent = await prisma.careReceiver.findUnique(
+        { 
+            where: { id } 
+        });
+
+    if (!parent) throw new Error("Care Receiver not found.");
+
+    const data: any = { ...updateData };
+
+    // Ensure age is an integer if provided
+    if (data.age) data.age = parseInt(data.age, 10);
+
+    // Ensure existingConditions is an array if provided
+    if (data.existingConditions && !Array.isArray(data.existingConditions)) {
+        data.existingConditions = [data.existingConditions];
+    }
+
+    return await prisma.careReceiver.update({
+        where: { id },
+        data: data,
+    });
 };
