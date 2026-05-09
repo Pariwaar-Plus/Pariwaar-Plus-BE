@@ -1,5 +1,14 @@
 import express from "express";
-import { createFamily, getMyFamily, addParent, adminGetFamily, assignAgent, getFamilies, getCareReceiverById } from "./family.controller";
+import { createFamily, 
+  getMyFamily, 
+  addParent, 
+  adminGetFamily,
+  assignAgent, 
+  getFamilies, 
+  getCareReceiverById,
+  deleteClient,
+  updateClient
+} from "./family.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
 import { Role } from "@prisma/client";
@@ -11,6 +20,21 @@ router.post(
   authMiddleware,
   authorizeRoles(Role.ADMIN),
   createFamily
+);
+
+router.patch(
+  "/:clientId",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  updateClient
+);
+
+// @route   DELETE /api/family/:clientId
+router.delete(
+  "/:clientId",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  deleteClient
 );
 
 // --- CLIENT ROUTES ---

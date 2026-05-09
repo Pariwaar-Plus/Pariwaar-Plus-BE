@@ -27,6 +27,46 @@ export const createFamily = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Update Client Profile
+export const updateClient = async (req: AuthRequest, res: Response) => {
+  try {
+    const clientId = req.params.clientId as string;
+    const result = await familyService.updateClient(clientId, req.body);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: "Client updated successfully",
+      data: result 
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const deleteClient = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin authorization required.",
+      });
+    }
+
+    const id = req.params.clientId as string;
+    await familyService.softDeleteClient(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Client and associated family data have been deactivated.",
+    });
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Failed to delete client.",
+    });
+  }
+};
+
 /**
  * GET /api/family/my-family
  * Logic: "Show me my own parents"

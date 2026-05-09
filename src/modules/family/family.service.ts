@@ -76,6 +76,57 @@ export const registerClient = async (adminId: string, clientData: ClientDTO) => 
     }
 };
 
+// Update Client Profile
+export const updateClient = async (clientId: string, data: any) => {
+    const client = await prisma.client.findUnique({
+        where: { id: clientId },
+        select: { userId: true }
+    })
+
+    if (!client) throw new Error("Client profile not found");
+
+    return await prisma.client.update({
+        where: { id: clientId },
+        data: data,
+    });
+}
+
+// Delete Client with their parents
+export const softDeleteClient = async (clientId: string) => {
+    // 1. Find the client to get the linked userId
+    const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { userId: true }
+    });
+
+    if (!client) throw new Error("Client not found");
+
+    return await prisma.$transaction(async (tx) => {
+    const now = new Date();
+
+    // 2. Soft delete the Client profile
+    const updatedClient = await tx.client.update({
+        where: { id: clientId },
+        data: { deletedAt: now },
+    });
+
+    // 3. Soft delete the User account (prevents login)
+    await tx.user.update({
+        where: { id: client.userId },
+        data: { deletedAt: now },
+    });
+
+    // 4. Optional: Soft delete all associated CareReceivers
+    // This ensures parents aren't "orphaned" in the active list
+    await tx.careReceiver.updateMany({
+        where: { clientId: clientId },
+        data: { deletedAt: now },
+    });
+
+    return updatedClient;
+    });
+};
+
 
 /**
  * For the Client: Find by User ID (from the JWT)
