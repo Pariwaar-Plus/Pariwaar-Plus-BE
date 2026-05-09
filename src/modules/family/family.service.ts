@@ -228,3 +228,33 @@ export const assignAgentToParent = async (careAgentId: string, careReceiverId: s
     }
     });
 };
+
+export const getCareReceiverById = async (id: string) => {
+    const careReceiver = await prisma.careReceiver.findUnique({
+    where: { id },
+    include: {
+        // Include the family member (Client) who registered them
+        client: {
+        include: {
+            user: {
+            select: {
+                name: true,
+                email: true,
+            },
+            },
+        },
+        },
+        // Include historical logs (optional, but useful for Admin)
+        visitLogs: {
+        take: 5, // Get last 5 visits for a quick snapshot
+        orderBy: { createdAt: 'desc' },
+        },
+    },
+    });
+
+    if (!careReceiver || careReceiver.deletedAt) {
+    throw new Error("Care Receiver not found or has been deactivated.");
+    }
+
+    return careReceiver;
+};

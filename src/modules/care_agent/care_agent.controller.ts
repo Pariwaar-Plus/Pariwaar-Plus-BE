@@ -66,6 +66,21 @@ export const updateMyProfile = async (req: any, res: Response) => {
   }
 };
 
+// Update care agent by admin
+export const updateAgent = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.careAgentId as string;
+    const result = await service.updateCareAgentByAdmin(id, req.body);
+    
+    res.status(200).json({
+      success: true,
+      message: "Care Agent updated successfully",
+      data: result
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
 /**
  * GET /api/care-agent/admin/view/:careAgentId
  * Logic: "Show me the details for a specific careAgent"

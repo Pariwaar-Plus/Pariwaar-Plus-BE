@@ -107,16 +107,29 @@ export const getCareAgentByUserId = async (userId: string) => {
  */
 export const updateCareAgent = async (userId: string, data: any) => {
   // Destructure to ensure we only update allowed professional fields
-  const { qualification, experience, contact, city } = data;
+  const {contact, city } = data;
 
   return prisma.careAgent.update({
     where: { userId },
     data: {
-      qualification,
-      experience,
       contact,
       city,
     },
+  });
+};
+
+// Update Care Agent Details By admin
+export const updateCareAgentByAdmin = async (careAgentId: string, data: any) => {
+  const agent = await prisma.careAgent.findUnique({
+    where: { id: careAgentId },
+    select: { userId: true }
+  });
+
+  if (!agent) throw new Error("Care Agent not found");
+
+  return await prisma.careAgent.update({
+    where: { id: careAgentId },
+    data: data, 
   });
 };
 

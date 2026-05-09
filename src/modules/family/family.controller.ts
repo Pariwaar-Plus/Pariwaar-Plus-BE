@@ -124,3 +124,28 @@ export const assignAgent = async (req: AuthRequest, res: Response) => {
     res.status(400).json({ success: false, message: err.message });
   }
 };
+
+// Get a specific care receiver
+export const getCareReceiverById = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    const id = req.params.careReceiverid as string;
+    const data = await familyService.getCareReceiverById(id);
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (err: any) {
+    return res.status(404).json({
+      success: false,
+      message: err.message || "Resource not found",
+    });
+  }
+};

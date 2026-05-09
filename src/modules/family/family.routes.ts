@@ -1,5 +1,5 @@
 import express from "express";
-import { createFamily, getMyFamily, addParent, adminGetFamily, assignAgent, getFamilies } from "./family.controller";
+import { createFamily, getMyFamily, addParent, adminGetFamily, assignAgent, getFamilies, getCareReceiverById } from "./family.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
 import { Role } from "@prisma/client";
@@ -53,6 +53,14 @@ router.post(
   authMiddleware,
   authorizeRoles(Role.ADMIN),
   assignAgent
+);
+
+// @desc    Get detailed profile of a parent/care receiver
+router.get(
+  "/admin/view/careReceiver/:careReceiverid",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  getCareReceiverById
 );
 
 

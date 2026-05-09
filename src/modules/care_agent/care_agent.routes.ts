@@ -6,7 +6,8 @@ import {
   adminGetCareAgent,
   getMyAssignments,
   registerCareAgent,
-  deleteCareAgent
+  deleteCareAgent,
+  updateAgent
 } from "./care_agent.controller";
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
@@ -47,6 +48,13 @@ router.patch(
   updateMyProfile
 );
 
+// Update Care Agent Details By admin
+router.patch("/admin/update/:careAgentId", 
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  updateAgent
+);
+
 // CARE_AGENT: Fetch their own assignments
 router.get(
   "/me/assignments",
@@ -66,7 +74,7 @@ router.get(
 router.delete(
   "/:id",
   authMiddleware,
-  authorizeRoles("ADMIN"), // Ensure only Admins can hit this
+  authorizeRoles(Role.ADMIN), // Ensure only Admins can hit this
   deleteCareAgent
 );
 
