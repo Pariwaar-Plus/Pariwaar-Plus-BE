@@ -282,11 +282,41 @@ export const assignAgentToParent = async (careAgentId: string, careReceiverId: s
     });
 };
 
+// export const getCareReceiverById = async (id: string) => {
+//     const careReceiver = await prisma.careReceiver.findUnique({
+//     where: { id },
+//     include: {
+//         // Include the family member (Client) who registered them
+//         client: {
+//         include: {
+//             user: {
+//             select: {
+//                 name: true,
+//                 email: true,
+//             },
+//             },
+//         },
+//         },
+//         // Include historical logs (optional, but useful for Admin)
+//         visitLogs: {
+//         take: 5, // Get last 5 visits for a quick snapshot
+//         orderBy: { createdAt: 'desc' },
+//         },
+//     },
+//     });
+
+//     if (!careReceiver || careReceiver.deletedAt) {
+//     throw new Error("Care Receiver not found or has been deactivated.");
+//     }
+
+//     return careReceiver;
+// };
+
 export const getCareReceiverById = async (id: string) => {
     const careReceiver = await prisma.careReceiver.findUnique({
     where: { id },
     include: {
-        // Include the family member (Client) who registered them
+        // 1. Include the family member (Client)
         client: {
         include: {
             user: {
@@ -297,10 +327,32 @@ export const getCareReceiverById = async (id: string) => {
             },
         },
         },
-        // Include historical logs (optional, but useful for Admin)
+        // 2. Include the assigned Care Agent(s)
+        // Accessing through the assignments table
+        assignments: {
+        where: { status: "ACTIVE" }, // Only get the current agent
+        include: {
+            careAgent: {
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            email: true,
+                        },
+                    },
+                },
+            },
+        },
+        },
+        // 3. Include historical logs
         visitLogs: {
-        take: 5, // Get last 5 visits for a quick snapshot
+        take: 5,
         orderBy: { createdAt: 'desc' },
+        include: {
+            careAgent: { // Also see who performed each specific visit
+                include: { user: { select: { name: true } } }
+            }
+        }
         },
     },
     });
