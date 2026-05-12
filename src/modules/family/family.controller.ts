@@ -165,6 +165,28 @@ export const assignAgent = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const unassignAgent = async (req: AuthRequest, res: Response) => {
+  try {
+    const careReceiverId = req.params.careReceiverId as string;
+
+    if (!careReceiverId) {
+      return res.status(400).json({ success: false, message: "Care Receiver ID is required" });
+    }
+
+    await familyService.removeAgentFromParent(careReceiverId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Care agent has been successfully removed from this profile.",
+    });
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Failed to remove care agent",
+    });
+  }
+};
+
 // Get a specific care receiver
 export const getCareReceiverById = async (req: AuthRequest, res: Response) => {
   try {

@@ -9,7 +9,8 @@ import { createFamily,
   deleteClient,
   updateClient,
   deleteParent,
-  updateParent
+  updateParent,
+  unassignAgent
 } from "./family.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
@@ -78,6 +79,14 @@ router.post(
   authMiddleware,
   authorizeRoles(Role.ADMIN),
   assignAgent
+);
+
+// PATCH /api/family/unassign/:careReceiverId
+router.patch(
+  "/unassign/:careReceiverId",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  unassignAgent
 );
 
 // @desc    Get detailed profile of a parent/care receiver

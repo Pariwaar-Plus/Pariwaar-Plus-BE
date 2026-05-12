@@ -288,6 +288,29 @@ export const assignAgentToParent = async (careAgentId: string, careReceiverId: s
     });
 };
 
+export const removeAgentFromParent = async (careReceiverId: string) => {
+    // 1. Find the active assignment
+    const activeAssignment = await prisma.careAssignment.findFirst({
+    where: {
+        careReceiverId,
+        status: "ACTIVE",
+    },
+    });
+
+    if (!activeAssignment) {
+    throw new Error("No active care agent assignment found for this receiver.");
+    }
+
+    // 2. Mark it as inactive and set the end date
+    return await prisma.careAssignment.update({
+    where: { id: activeAssignment.id },
+    data: {
+        status: "INACTIVE",
+        endDate: new Date(),
+    },
+    });
+};
+
 export const getCareReceiverById = async (id: string) => {
     const careReceiver = await prisma.careReceiver.findUnique({
     where: { id },
