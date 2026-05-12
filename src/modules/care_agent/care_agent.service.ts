@@ -186,7 +186,7 @@ export const getMyAssignedCareReceivers = async (userId: string) => {
 
 // Soft Delete care agent profile
 export const deleteCareAgent = async (careAgentId: string) => {
-  // First, find the agent to get the linked userId
+  // 1. Verify agent existence and get userId
   const agent = await prisma.careAgent.findUnique({
     where: { id: careAgentId },
     select: { userId: true }
@@ -194,18 +194,32 @@ export const deleteCareAgent = async (careAgentId: string) => {
 
   if (!agent) throw new Error("Care Agent not found");
 
-  // Use a transaction to soft-delete both records
   return await prisma.$transaction(async (tx) => {
-    // 1. Soft delete the CareAgent profile
-    const updatedAgent = await tx.careAgent.update({
-      where: { id: careAgentId },
-      data: { deletedAt: new Date() },
+    const now = new Date();
+
+    // 2. Set all active assignments for this agent to INACTIVE
+    // This prevents "orphaned" active assignments in your dashboard
+    await tx.careAssignment.updateMany({
+      where: {
+        careAgentId: careAgentId,
+        status: "ACTIVE",
+      },
+      data: {
+        status: "INACTIVE",
+        endDate: now,
+      },
     });
 
-    // 2. Soft delete the User
+    // 3. Soft delete the CareAgent profile
+    const updatedAgent = await tx.careAgent.update({
+      where: { id: careAgentId },
+      data: { deletedAt: now },
+    });
+
+    // 4. Soft delete the User (prevents future logins)
     await tx.user.update({
       where: { id: agent.userId },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: now },
     });
 
     return updatedAgent;

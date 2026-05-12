@@ -239,78 +239,54 @@ export const addParentToFamily = async (clientId: string, parentData: any) => {
  * ADMIN: Assign a Care Agent to a Parent
  */
 export const assignAgentToParent = async (careAgentId: string, careReceiverId: string) => {
-  // The @@unique constraint in Prisma will throw an error if this already exists,
-  // but checking manually allows for a cleaner error message.
-
-    const agent = await prisma.careAgent.findUnique({
-    where: { id: careAgentId }
+    // Check agent status here
+    const agent = await prisma.careAgent.findUnique({ 
+        where: { id: careAgentId },
+        select: { deletedAt: true } // Only fetch what you need
     });
 
-    if (!agent) {
-    throw new Error("Care Agent not found");
+    if (!agent || agent.deletedAt) {
+        throw new Error("Cannot assign: Care Agent is inactive or does not exist.");
     }
+    return await prisma.$transaction(async (tx) => {
+        // 1. Check if the parent already has an active agent
+        const existingAssignment = await tx.careAssignment.findFirst({
+            where: {
+            careReceiverId,
+            status: "ACTIVE",
+            },
+        });
 
-    const receiver = await prisma.careReceiver.findUnique({
-    where: { id: careReceiverId }
-    });
-
-    if (!receiver) {
-    throw new Error("Care Receiver not found");
-    }
-    
-    const existing = await prisma.careAssignment.findUnique({
-    where: {
-        careReceiverId_careAgentId: {
-        careReceiverId,
-        careAgentId
+        // 2. If an active assignment exists, "soft-close" it
+        if (existingAssignment) {
+            await tx.careAssignment.update({
+            where: { id: existingAssignment.id },
+            data: { 
+                status: "INACTIVE", 
+                endDate: new Date() 
+            },
+            });
         }
-    }
-    });
 
-    if (existing) throw new Error("This agent is already assigned to this parent.");
-
-    return await prisma.careAssignment.create({
-    data: {
-        careAgentId,
-        careReceiverId,
-        status: 'ACTIVE'
-    },
-    include: {
-        careReceiver: { select: { name: true } },
-        careAgent: { include: { user: { select: { name: true } } } }
-    }
+        // 3. Create the new assignment
+        return await tx.careAssignment.create({
+            data: {
+            careAgentId,
+            careReceiverId,
+            status: "ACTIVE",
+            startDate: new Date(),
+            },
+            include: {
+            careAgent: {
+                include: { user: { select: { name: true } } }
+            },
+            careReceiver: {
+                select: { name: true }
+            }
+            }
+        });
     });
 };
-
-// export const getCareReceiverById = async (id: string) => {
-//     const careReceiver = await prisma.careReceiver.findUnique({
-//     where: { id },
-//     include: {
-//         // Include the family member (Client) who registered them
-//         client: {
-//         include: {
-//             user: {
-//             select: {
-//                 name: true,
-//                 email: true,
-//             },
-//             },
-//         },
-//         },
-//         // Include historical logs (optional, but useful for Admin)
-//         visitLogs: {
-//         take: 5, // Get last 5 visits for a quick snapshot
-//         orderBy: { createdAt: 'desc' },
-//         },
-//     },
-//     });
-
-//     if (!careReceiver || careReceiver.deletedAt) {
-//     throw new Error("Care Receiver not found or has been deactivated.");
-//     }
-
-//     return careReceiver;
-// };
 
 export const getCareReceiverById = async (id: string) => {
     const careReceiver = await prisma.careReceiver.findUnique({

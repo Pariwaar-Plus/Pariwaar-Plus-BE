@@ -118,19 +118,21 @@ model CareReceiver {
   @@index([clientId])
 }
 
+
 model CareAssignment {
-  id             String           @id @default(uuid())
-  careReceiverId String
+  id             String       @id @default(uuid())
   careAgentId    String
-
-  status         AssignmentStatus @default(ACTIVE)
-
-  careReceiver   CareReceiver @relation(fields: [careReceiverId], references: [id])
+  careReceiverId String
+  status         AssignmentStatus @default(ACTIVE) // Enum: ACTIVE, INACTIVE
+  startDate      DateTime     @default(now())
+  endDate        DateTime?
+  
   careAgent      CareAgent    @relation(fields: [careAgentId], references: [id])
+  careReceiver   CareReceiver @relation(fields: [careReceiverId], references: [id])
 
-  assignedAt     DateTime @default(now())
-
-  @@unique([careReceiverId, careAgentId])
+  // Optional: A database-level unique constraint can prevent duplicates 
+  // if you only want ONE active record ever per parent.
+  @@index([careReceiverId, status])
 }
 
 enum AssignmentStatus {
