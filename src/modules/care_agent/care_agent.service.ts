@@ -1,71 +1,170 @@
-import { Role } from "@prisma/client";
+import { Prisma, Role, CareAgentStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { hashPassword } from "../../utils/hash";
 import crypto from "crypto";
 import { sendWelcomeEmail } from "../../utils/email.util";
-import { CareAgentDTO } from "../../@types";
+import { CreateCareAgentDTO, RegisterCareAgentResult } from "./types/care_agent.dto";
+import { generateEmployeeId } from "../../utils/employee_id";
+import { AppError } from "../../../lib/erros";
 
 
 
-export const registerCareAgent = async (data: CareAgentDTO) => {
-  const existing = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
 
-  if (existing) throw new Error("User already exists");
+export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<RegisterCareAgentResult> => {
+  
+  // Validate DOB
+  const dob = new Date(data.dateOfBirth);
 
-  const tempPassword = data.password || crypto.randomBytes(8).toString("hex");
-  const hashed = await hashPassword(tempPassword);
-  try{
-    // Use $transaction to prevent "orphan" users if profile creation fails
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name: data.name,
-          email: data.email,
-          password: hashed,
-          role: Role.CARE_AGENT,
-        },
-      });
-
-      const careAgent = await tx.careAgent.create({
-        data: {
-          userId: user.id,
-          qualification: data.qualification,
-          experience: data.experience,
-          contact: data.contact,
-          ward: data.ward,
-          tole: data.tole,
-          city: data.city
-        },
-      });
-        
-
-      return {
-        user: {id: user.id, name: user.name, email: user.email},
-        careAgent
-      };
-    });
-
-    // Post-Transaction: Send Email
-
-    try {
-        await sendWelcomeEmail(result.user.email, result.user.name, tempPassword);
-    } catch (error) {
-        console.error("Welcome email failed to send:", error);
-    }
-    
-    return {
-      ...result,
-      tempPassword
-    }
-  } catch (e: any){
-    if (e.code === "P2002") {
-      throw new Error("User with this email already exists");
-    }
-    throw new Error(e.message);
+  if (isNaN(dob.getTime())) {
+    throw new Error("Invalid date of birth");
   }
 
+  // Check if user exists (including soft-deleted)
+  const existingUser  = await prisma.user.findUnique({
+    where: { email: data.email },
+    include: { careAgent: true },
+  });
+
+  if (existingUser && !existingUser.deletedAt) {
+    if (existingUser.role === Role.CARE_AGENT) {
+      throw new Error(
+        "This email is already registered to an active Care Agent."
+      );
+    }
+
+    throw new Error(
+      `This email is already in use by a ${existingUser.role}.`
+    );
+  }
+
+  // Set up credentials
+  const tempPassword = data.password || crypto.randomBytes(8).toString("hex");
+  const hashed = await hashPassword(tempPassword);
+
+  /**
+   * Retry logic for employeeId collision
+   */
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try{
+      // Use $transaction to prevent "orphan" users if profile creation fails
+      const result = await prisma.$transaction(async (tx) => {
+        const employeeId = await generateEmployeeId(tx);
+        /**
+         * Create or Restore User
+         */
+        const user = await tx.user.upsert({
+          where: {
+            email: data.email
+          },
+          update: {
+            name: data.name,
+            password: hashed,
+            role: Role.CARE_AGENT,
+            deletedAt: null,
+          },
+          create: {
+            name: data.name,
+            email: data.email,
+            password: hashed,
+            role: Role.CARE_AGENT,
+          },
+        });
+        /**
+        * Create or Restore CareAgent
+        */
+        const careAgent = await tx.careAgent.upsert({
+          where: {
+            userId: user.id
+          },
+          update: {
+            employeeId,
+            status: CareAgentStatus.AVAILABLE,
+            qualification: data.qualification,
+            experience: data.experience,
+            phone: data.phone,
+            secondaryPhone: data.secondaryPhone,
+            gender: data.gender,
+            dateOfBirth: dob,
+            city: data.city,
+            ward: data.ward,
+            tole: data.tole,
+            district: data.district,
+            specialization: data.specialization,
+            longitude: data.longitude,
+            latitude: data.latitude,
+            citizenshipNo: data.citizenshipNo,
+            licenseNo: data.licenseNo,
+            deletedAt: null,
+          },
+          create: {
+            userId: user.id,
+            employeeId, 
+            qualification: data.qualification,
+            experience: data.experience,
+            phone: data.phone,
+            secondaryPhone: data.secondaryPhone,
+            gender: data.gender,
+            dateOfBirth: dob,
+            city: data.city,
+            ward: data.ward,
+            tole: data.tole,
+            district: data.district,
+            specialization: data.specialization,
+            longitude: data.longitude,
+            latitude: data.latitude,
+            citizenshipNo: data.citizenshipNo,
+            licenseNo: data.licenseNo,
+          },
+        });
+          
+
+        return {
+          user,
+          careAgent
+        };
+      });
+
+      // Post-Transaction: Send Email
+
+      try {
+          await sendWelcomeEmail(result.user.email, result.user.name, tempPassword);
+      } catch (emailError) {
+          console.error("Welcome email failed to send:", emailError);
+      }
+      
+      return {
+        ...result,
+        tempPassword
+      }
+    }catch (e: any){
+      /**
+       * Retry on unique constraint collision
+       */
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002"
+      ) {
+        // Retry employeeId generation
+        if (attempt < MAX_RETRIES) {
+          continue;
+        }
+
+        throw new Error(
+          "Failed to generate unique employee ID. Please retry."
+        );
+      }
+
+      console.error("Register Care Agent Error:", e);
+
+      throw new Error(
+        e.message || "Failed to register care agent"
+      );
+    }
+  }
+
+  // If we somehow exit the retry loop without returning, throw an error
+  throw new Error("Failed to register care agent after multiple attempts");
 };
 
 
@@ -120,31 +219,188 @@ export const updateCareAgent = async (userId: string, data: any) => {
 
 // Update Care Agent Details By admin
 export const updateCareAgentByAdmin = async (careAgentId: string, data: any) => {
-  const agent = await prisma.careAgent.findUnique({
+  const {
+    name,
+    email,
+    ...careAgentData
+  } = data;
+  const result = await prisma.$transaction(async (tx) => {
+
+    // 1. Get relation
+  const agent = await tx.careAgent.findUnique({
     where: { id: careAgentId },
     select: { userId: true }
   });
 
-  if (!agent) throw new Error("Care Agent not found");
+  if (!agent) throw new Error("CareAgent not found");
 
-  return await prisma.careAgent.update({
-    where: { id: careAgentId },
-    data: data, 
+  // 2. Update USER table (ONLY user fields)
+  if (name || email) {
+    await tx.user.update({
+      where: { id: agent.userId },
+      data: {
+        ...(name && { name }),
+        ...(email && { email }),
+      }
+    });
+    }
+
+    // 3. Update CARE AGENT table (ONLY agent fields)
+    const updatedAgent = await tx.careAgent.update({
+      where: { id: careAgentId },
+      data: {
+        phone: careAgentData.phone,
+        secondaryPhone: careAgentData.secondaryPhone || null,
+        gender: careAgentData.gender,
+        dateOfBirth: new Date(careAgentData.dateOfBirth),
+
+        qualification: careAgentData.qualification,
+        specialization: careAgentData.specialization || null,
+        experience: careAgentData.experience,
+
+        city: careAgentData.city,
+        district: careAgentData.district || null,
+        ward: careAgentData.ward,
+        tole: careAgentData.tole,
+
+        latitude: careAgentData.latitude ?? null,
+        longitude: careAgentData.longitude ?? null,
+
+        citizenshipNo: careAgentData.citizenshipNo || null,
+        licenseNo: careAgentData.licenseNo || null,
+      }
+    });
+
+    return updatedAgent;
   });
+
+  return result;
 };
 
 /**
  * For the Admin: Find by CareAgent Profile ID (from the URL param)
  */
 export const getCareAgentByProfileId = async (profileId: string) => {
-    const careAgent = await prisma.careAgent.findUnique({
-    where: { id: profileId },
-    include: { 
-        user: { select: { name: true, email: true } } 
-    }
-    });
-    if (!careAgent) throw new Error("Care Agent profile not found");
-    return careAgent;
+  const careAgent = await prisma.careAgent.findUnique({
+    where: {
+      id: profileId,
+      deletedAt: null,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      assignments: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        include: {
+          careReceiver: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+            },
+          },
+        },
+      },
+      visitLogs: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          createdAt: true,
+          // add your actual VisitLog fields here
+        },
+      },
+    },
+  });
+
+  if (!careAgent) {
+    throw new AppError("Care agent not found", 404);
+  }
+
+  // ── Computed stats ──
+  const totalAssignments = await prisma.careAssignment.count({
+    where: { careAgentId: profileId },
+  });
+
+  const activeAssignments = await prisma.careAssignment.count({
+    where: {
+      careAgentId: profileId,
+      status: "ACTIVE", // adjust to your CareAssignment status enum
+    },
+  });
+
+  const joinedDaysAgo = Math.floor(
+    (Date.now() - new Date(careAgent.joinedDate).getTime()) /
+    (1000 * 60 * 60 * 24)
+  );
+
+  const age = Math.floor(
+    (Date.now() - new Date(careAgent.dateOfBirth).getTime()) /
+    (1000 * 60 * 60 * 24 * 365.25)
+  );
+
+  return {
+    // ── Account ──
+    id:          careAgent.id,
+    userId:      careAgent.userId,
+    employeeId:  careAgent.employeeId,
+    status:      careAgent.status,
+    joinedDate:  careAgent.joinedDate,
+
+    // ── User info (flattened) ──
+    name:             careAgent.user.name,
+    email:            careAgent.user.email,
+    role:             careAgent.user.role,
+    accountCreatedAt: careAgent.user.createdAt,
+    accountUpdatedAt: careAgent.user.updatedAt,
+
+    // ── Personal ──
+    gender:         careAgent.gender,
+    dateOfBirth:    careAgent.dateOfBirth,
+    phone:          careAgent.phone,
+    secondaryPhone: careAgent.secondaryPhone,
+
+    // ── Professional ──
+    qualification:  careAgent.qualification,
+    specialization: careAgent.specialization,
+    experience:     careAgent.experience,
+
+    // ── Documents ──
+    citizenshipNo: careAgent.citizenshipNo,
+    licenseNo:     careAgent.licenseNo,
+
+    // ── Location ──
+    city:      careAgent.city,
+    district:  careAgent.district,
+    ward:      careAgent.ward,
+    tole:      careAgent.tole,
+    latitude:  careAgent.latitude,
+    longitude: careAgent.longitude,
+
+    // ── Relations ──
+    assignments: careAgent.assignments,
+    recentVisitLogs: careAgent.visitLogs,
+
+    // ── Computed ──
+    stats: {
+      age,
+      joinedDaysAgo,
+      totalAssignments,
+      activeAssignments,
+      hasCoordinates: careAgent.latitude !== null && careAgent.longitude !== null,
+      hasDocuments:   Boolean(careAgent.citizenshipNo) || Boolean(careAgent.licenseNo),
+    },
+  };
 };
 
 /**

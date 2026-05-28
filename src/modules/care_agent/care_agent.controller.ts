@@ -1,18 +1,74 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import * as service from "./care_agent.service";
 import { AuthRequest } from "../../@types";
+import { CreateCareAgentSchema, UpdateCareAgentSchema } from "./types/care_agent.dto";
+import { z, ZodError } from "zod";
 
 
 
 export const registerCareAgent = async (req: Request, res: Response) => {
   try {
-    if (!req.body.email || !req.body.name) {
-        return res.status(400).json({ message: "Invalid input" });
+    /**
+     * 1. Validate request body (strict DTO validation)
+     */
+    const validatedData = CreateCareAgentSchema.parse(req.body);
+
+    /**
+     * 2. Call service layer
+     */
+    const result = await service.registerCareAgent(validatedData);
+
+    /**
+     * 3. Extract sensitive fields
+     */
+    const { tempPassword, ...safeData } = result;
+
+    /**
+     * 4. Build response (do NOT expose password by default)
+     */
+    return res.status(201).json({
+      success: true,
+      message: "Care Agent registered successfully",
+      data: safeData,
+    });
+  }catch (error: any) {
+    /**
+     * 1. Zod validation errors
+     */
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.issues,
+      });
     }
-    const user = await service.registerCareAgent(req.body);
-    res.status(201).json(user);
-  } catch (e: any) {
-    res.status(400).json({ message: e.message });
+
+    /**
+     * 2. Known business logic errors
+     */
+    if (
+      typeof error.message === "string" &&
+      (error.message.includes("already") ||
+        error.message.includes("exists"))
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    /**
+     * 3. Log unexpected errors for debugging
+     */
+    console.error("registerCareAgent ERROR:", error);
+
+    /**
+     * 4. Generic fallback
+     */
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
@@ -69,30 +125,105 @@ export const updateMyProfile = async (req: any, res: Response) => {
 // Update care agent by admin
 export const updateAgent = async (req: Request, res: Response) => {
   try {
-    const id = req.params.careAgentId as string;
-    const result = await service.updateCareAgentByAdmin(id, req.body);
-    
-    res.status(200).json({
+    /**
+     * 1. Validate route param
+     */
+    const careAgentId = req.params.careAgentId as string;
+
+    if (!careAgentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Care Agent ID is required",
+      });
+    }
+
+    /**
+     * 2. Validate request body
+     */
+    const validatedData = UpdateCareAgentSchema.parse(req.body);
+
+    /**
+     * 3. Call service layer
+     */
+    const updatedCareAgent = await service.updateCareAgentByAdmin(
+        careAgentId,
+        validatedData
+      );
+
+      /**
+     * 4. Success response
+     */
+    return res.status(200).json({
       success: true,
       message: "Care Agent updated successfully",
-      data: result
+      data: updatedCareAgent,
     });
-  } catch (err: any) {
-    res.status(400).json({ success: false, message: err.message });
+
+  } catch (error: any) {
+    /**
+     * 1. Zod validation errors
+     */
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.issues,
+      });
+    }
+
+    /**
+     * 2. Not found errors
+     */
+    if (
+      typeof error.message === "string" && error.message.toLowerCase().includes("not found")
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    /**
+     * 3. Generic fallback
+     */
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 /**
- * GET /api/care-agent/admin/view/:careAgentId
+ * GET /:careAgentId
  * Logic: "Show me the details for a specific careAgent"
  */
-export const adminGetCareAgent = async (req: AuthRequest, res: Response) => {
+const uuidSchema = z.uuid("Invalid care agent ID format");
+
+export const adminGetCareAgent = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const careAgentId = req.params.careAgentId as string;
-    const careAgent = await service.getCareAgentByProfileId(careAgentId);
-    
-    res.status(200).json({ success: true, data: careAgent });
-  } catch (err: any) {
-    res.status(404).json({ success: false, message: err.message });
+    const parsed = uuidSchema.safeParse(req.params.careAgentId);
+
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid care agent ID format",
+        errors: parsed.error.flatten().formErrors,
+      });
+      return;
+    }
+
+    const careAgent = await service.getCareAgentByProfileId(parsed.data);
+
+    res.status(200).json({
+      success: true,
+      data: careAgent,
+    });
+
+  } catch (err) {
+    next(err); // delegate to your global error handler
   }
 };
 

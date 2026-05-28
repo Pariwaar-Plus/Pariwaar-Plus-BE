@@ -3,6 +3,9 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
 import rootRouter from "./index.routes";
+import { globalErrorHandler } from "./middlewares/error.middleware";
+import { verifyMailerConnection } from "../lib/mailer";
+
 
 dotenv.config();
 
@@ -14,7 +17,10 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+verifyMailerConnection();
+
 app.use(cookieParser());
+app.use(globalErrorHandler);
 
 app.get("/", (req, res) => {
   res.send("Clinic System API is running...");

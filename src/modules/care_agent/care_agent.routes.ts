@@ -49,10 +49,18 @@ router.patch(
 );
 
 // Update Care Agent Details By admin
-router.patch("/admin/update/:careAgentId", 
+router.patch("/:careAgentId", 
   authMiddleware,
   authorizeRoles(Role.ADMIN),
   updateAgent
+);
+
+// ADMIN: viewing any CareAgent by ID
+router.get(
+  "/:careAgentId", 
+  authMiddleware, 
+  authorizeRoles(Role.ADMIN), 
+  adminGetCareAgent
 );
 
 // CARE_AGENT: Fetch their own assignments
@@ -63,13 +71,6 @@ router.get(
   getMyAssignments
 );
 
-// ADMIN: viewing any CareAgent by ID
-router.get(
-  "/admin/view/:careAgentId", 
-  authMiddleware, 
-  authorizeRoles(Role.ADMIN), 
-  adminGetCareAgent
-);
 
 router.delete(
   "/:id",

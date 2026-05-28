@@ -51,18 +51,58 @@ enum Role {
   CLIENT
 }
 
+enum CareAgentStatus {
+  AVAILABLE
+  ASSIGNED
+  ON_LEAVE
+  INACTIVE
+}
+
+enum BillingType {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
 model CareAgent {
   id            String @id @default(uuid())
   userId        String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  qualification String  
-  experience    Int
-  contact       String
-  city          String?
-  ward          String?
-  tole          String?
+  // --- Professional Info ---
+  employeeId      String      @unique // e.g., SAH-2024-001
+  status          CareAgentStatus @default(AVAILABLE)
+  qualification   String      
+  specialization  String?     // e.g., Elder Care, Post-Op, Child Care
+  experience      Int         // In years
+  joinedDate      DateTime    @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  // --- Personal & Contact ---
+  phone           String      @unique
+  secondaryPhone  String?
+  gender          Gender
+  dateOfBirth     DateTime
+
+  // --- Address Details ---
+  city            String
+  district        String?     // Useful for regional filtering
+  ward            String
+  tole            String
+  latitude        Float?      // For "Agents near me" features
+  longitude       Float?
+
+  // --- Documents & Compliance ---
+  citizenshipNo   String?     @unique
+  licenseNo       String?     // Medical/Driving license
+
+  // --- Relations ---
   assignments   CareAssignment[]
   visitLogs     VisitLog[]
 
@@ -70,101 +110,185 @@ model CareAgent {
 }
 
 model Client {
-  id        String @id @default(uuid())
-  userId    String @unique
+  id      String @id @default(uuid())
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  country   String?
-  city      String?
-  address   String?
-  contact   String?
+  // ── Contact ──
+  phone          String  @unique
+  countryCode    String  // e.g. "+1", "+61", "+44" 
+  secondaryPhone String?
 
-  user User @relation(fields: [userId], references: [id])
+  // ── Location (abroad) ──
+  country  String
+  timezone String
+  address  String?
+  city     String?
+
+  // ── Billing ──
+  billingType   BillingType   @default(MONTHLY)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  // ── Relations ──
   careReceivers CareReceiver[]
 
+  // ── Meta ──
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-
 }
 
+
 model CareReceiver {
-  id                String   @id @default(uuid())
-  clientId          String
-  
-  // Parent details
-  name              String
-  age               Int
-  gender            String
-  contactNumber     String
-  relationship Relationship?
-  
-  // Address
-  city              String
-  ward              String?
-  tole              String?
+  id       String @id @default(uuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  // Medical info
-  medicalHistory    String?  @db.Text
-  existingConditions String[]
+  // ── Personal ──
+  name        String
+  dateOfBirth DateTime
+  gender      Gender        // reuse existing enum
 
-  client            Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  assignments       CareAssignment[]
-  visitLogs         VisitLog[]       
+  // ── Contact & Location (in Nepal) ──
+  phone    String?
+  city     String
+  district String?
+  ward     String
+  tole     String
 
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  // ── Medical Info ──
+  bloodGroup       String?
+  medicalCondition String?  // brief description e.g. "Diabetes, Hypertension"
+  allergies        String?
+  mobilityStatus   MobilityStatus @default(INDEPENDENT)
+  notes            String?        // any extra admin notes
 
+  // ── Emergency Contact ──
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  // ── Relations ──
+  assignments CareAssignment[]
+
+  // ── Meta ──
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+}
 
-
-  @@index([clientId])
+enum MobilityStatus {
+  INDEPENDENT      // walks on their own
+  ASSISTED         // needs help walking
+  WHEELCHAIR       // wheelchair bound
+  BEDRIDDEN        // fully bedridden
 }
 
 
 model CareAssignment {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   careAgentId    String
-  careReceiverId String
-  status         AssignmentStatus @default(ACTIVE) // Enum: ACTIVE, INACTIVE
-  startDate      DateTime     @default(now())
-  endDate        DateTime?
-  
   careAgent      CareAgent    @relation(fields: [careAgentId], references: [id])
+  careReceiverId String
   careReceiver   CareReceiver @relation(fields: [careReceiverId], references: [id])
 
-  // Optional: A database-level unique constraint can prevent duplicates 
-  // if you only want ONE active record ever per parent.
-  @@index([careReceiverId, status])
+  status     AssignmentStatus @default(ACTIVE)
+  startDate  DateTime         @default(now())
+  endDate    DateTime?
+  notes      String?
+
+  // ── Relations ──
+  visitLogs VisitLog[]
+
+  // ── Meta ──
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
 enum AssignmentStatus {
   ACTIVE
-  INACTIVE
   COMPLETED
+  CANCELLED
+  ON_HOLD
 }
 
 model VisitLog {
-  id                String   @id @default(uuid())
-  careReceiverId    String
-  careAgentId       String
-  
-  // Health Monitoring Module
-  visitDate         DateTime @default(now())
-  
-  // Vital Signs
-  systolicBP        Int      
-  diastolicBP       Int
-  bloodSugar        Float?   
-  oxygenLevel       Int?     
-  weight            Float?   
-  
-  // Qualitative Data
-  generalNotes      String?  @db.Text 
-  medicationAdherence Boolean 
-  medicationNotes   String?  
-  
-  careReceiver      CareReceiver @relation(fields: [careReceiverId], references: [id])
-  careAgent         CareAgent    @relation(fields: [careAgentId], references: [id])
+  id           String         @id @default(uuid())
+  assignmentId String
+  assignment   CareAssignment @relation(fields: [assignmentId], references: [id])
+  careAgentId  String
+  careAgent    CareAgent      @relation(fields: [careAgentId], references: [id])
 
-  createdAt         DateTime     @default(now())
+  // ── Visit Timing ──
+  scheduledAt  DateTime
+  checkInAt    DateTime?
+  checkOutAt   DateTime?
+
+  // ── Status ──
+  status             VisitStatus @default(SCHEDULED)
+  cancellationReason String?
+
+  // ── Vitals (structured) ──
+  bloodPressureSystolic  Int?     // mmHg e.g. 120
+  bloodPressureDiastolic Int?     // mmHg e.g. 80
+  pulseRate              Int?     // bpm
+  temperature            Float?   // °C
+  oxygenSaturation       Float?   // SpO2 %
+  weight                 Float?   // kg
+  bloodSugar             Float?   // mg/dL (important for diabetics)
+  respiratoryRate        Int?     // breaths per minute
+
+  // ── Pain & Wellbeing ──
+  painLevel    Int?    // 0–10 scale
+  mood         Mood?
+
+  // ── Medications ──
+  medicationsGiven  String?  // e.g. "Metformin 500mg, Amlodipine 5mg"
+  medicationsSkipped String? // and reason
+
+  // ── Clinical Observations ──
+  symptoms        String?  // free text e.g. "mild cough, fatigue"
+  woundCare       String?  // description of any wound care performed
+  woundCondition  WoundCondition?
+
+  // ── Mobility ──
+  mobilityAssessment  MobilityStatus?  // reuse existing enum
+  mobilityNotes       String?
+
+  // ── Notes ──
+  agentNotes  String?   // general visit notes by agent
+  adminNotes  String?   // added by admin
+
+  // ── Meta ──
+  createdBy  String    // userId
+  updatedBy  String?   // userId
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+}
+
+enum VisitStatus {
+  SCHEDULED
+  COMPLETED
+  MISSED
+  CANCELLED
+}
+
+enum Mood {
+  HAPPY
+  CALM
+  ANXIOUS
+  CONFUSED
+  AGITATED
+  DEPRESSED
+}
+
+enum WoundCondition {
+  HEALING
+  STABLE
+  WORSENING
+  INFECTED
+  NOT_APPLICABLE
 }
 
 model RefreshToken {
