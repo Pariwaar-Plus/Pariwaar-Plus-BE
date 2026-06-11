@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma";
 import { CreateCareReceiverDTO, UpdateCareReceiverDTO } from "./types/care_receiver.dto";
 import { AppError } from "../../../lib/erros";
+import { AssignmentStatus } from "@prisma/client";
 
 /**
  * Create a new Care Receiver under an existing Client
@@ -203,7 +204,7 @@ export const deleteCareReceiver = async (careReceiverId: string) => {
         status: "ACTIVE",
       },
       data: {
-        status: "INACTIVE",
+        status: AssignmentStatus.INACTIVE,
         endDate: now,
       },
     });
