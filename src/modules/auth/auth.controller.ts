@@ -88,7 +88,6 @@ export const changePassword = async (req: Request, res: Response) => {
     const authReq = req as unknown as AuthRequest;
     const userId = authReq.user!.id;
 
-    console.log("Request body:", req.body);
     const result = await authService.changePassword(userId, req.body);
 
     res.status(200).json({

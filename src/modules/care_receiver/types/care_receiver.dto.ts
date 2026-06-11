@@ -4,7 +4,7 @@ const optionalString = z.string().optional().or(z.literal(""));
 
 export const CreateCareReceiverSchema = z.object({
     // ── Core relation ──
-    clientId: z.string().uuid("Invalid client ID"),
+    clientId: z.uuid("Invalid client ID"),
 
     // ── Personal ──
     name:        z.string().min(2, "Name is required"),
