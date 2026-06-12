@@ -18,10 +18,7 @@ export const registerCareAgent = async (req: Request, res: Response) => {
      */
     const result = await service.registerCareAgent(validatedData);
 
-    /**
-     * 3. Extract sensitive fields
-     */
-    const { tempPassword, ...safeData } = result;
+
 
     /**
      * 4. Build response (do NOT expose password by default)
@@ -29,9 +26,9 @@ export const registerCareAgent = async (req: Request, res: Response) => {
     return res.status(201).json({
       success: true,
       message: "Care Agent registered successfully",
-      data: safeData,
+      data: result.careAgent
     });
-  }catch (error: any) {
+  } catch (error: any) {
     /**
      * 1. Zod validation errors
      */
@@ -91,7 +88,7 @@ export const getAll = async (req: Request, res: Response) => {
 export const getMyProfile = async (req: any, res: Response) => {
   try {
     const agent = await service.getCareAgentByUserId(req.user.id);
-    
+
     if (!agent) {
       return res.status(404).json({ message: "Care agent profile not found" });
     }
@@ -111,7 +108,7 @@ export const updateMyProfile = async (req: any, res: Response) => {
       req.user.id,
       req.body
     );
-    
+
     res.json({
       message: "Profile updated successfully",
       data: updated
@@ -146,13 +143,13 @@ export const updateAgent = async (req: Request, res: Response) => {
      * 3. Call service layer
      */
     const updatedCareAgent = await service.updateCareAgentByAdmin(
-        careAgentId,
-        validatedData
-      );
+      careAgentId,
+      validatedData
+    );
 
-      /**
-     * 4. Success response
-     */
+    /**
+   * 4. Success response
+   */
     return res.status(200).json({
       success: true,
       message: "Care Agent updated successfully",
@@ -230,7 +227,7 @@ export const adminGetCareAgent = async (
 
 // Get assigned care receivers for care agent
 export const getMyAssignments = async (req: Request, res: Response) => {
-    try {
+  try {
     const authReq = req as unknown as AuthRequest;
 
     // We use the ID from the JWT token (req.user.id)
@@ -239,20 +236,20 @@ export const getMyAssignments = async (req: Request, res: Response) => {
     const assignments = await service.getMyAssignedCareReceivers(userId);
 
     res.status(200).json({
-        success: true,
-        count: assignments.length,
-        data: assignments
+      success: true,
+      count: assignments.length,
+      data: assignments
     });
-    } catch (err: any) {
+  } catch (err: any) {
     res.status(400).json({
-        success: false,
-        message: err.message
+      success: false,
+      message: err.message
     });
-    }
+  }
 };
 
 export const deleteCareAgent = async (req: AuthRequest, res: Response) => {
-  
+
   const careAgentId = req.params.id as string;
   try {
     if (req.user?.role !== 'ADMIN') {

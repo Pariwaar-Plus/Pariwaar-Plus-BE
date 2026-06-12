@@ -15,52 +15,11 @@ router.post(
 );
 
 
-// ADMIN: Fetch all agent data for the dashboard
 router.get(
-  "/:careReceiverId",
+  "/",
   authMiddleware,
-  authorizeRoles(Role.ADMIN),  
   getAssignmentByCareReceiver
 );
-
-// // CARE_AGENT: Fetch their own professional profile
-// router.get(
-//   "/me",
-//   authMiddleware,
-//   authorizeRoles(Role.CARE_AGENT), 
-//   getMyProfile
-// );
-
-// // CARE_AGENT: Update profile details
-// router.patch( 
-//   "/me",
-//   authMiddleware,
-//   authorizeRoles(Role.CARE_AGENT), 
-//   updateMyProfile
-// );
-
-// // Update Care Agent Details By admin
-// router.patch("/:careAgentId", 
-//   authMiddleware,
-//   authorizeRoles(Role.ADMIN),
-//   updateAgent
-// );
-
-// // ADMIN: viewing any CareAgent by ID
-// router.get(
-//   "/:careAgentId", 
-//   authMiddleware, 
-//   authorizeRoles(Role.ADMIN), 
-//   adminGetCareAgent
-// );
-
-// // CARE_AGENT: Fetch their own assignments
-// router.get(
-//   "/me/assignments",
-//   authMiddleware,
-//   authorizeRoles(Role.CARE_AGENT), 
-//   getMyAssignments
-// );
 
 
 router.delete(

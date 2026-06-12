@@ -50,9 +50,10 @@ export const createCareReceiver = async (data: CreateCareReceiverDTO) => {
 /**
  * Get all care receivers for Admin dashboards
  */
-export const getActiveCareReceivers = async () => {
+export const getActiveCareReceivers = async (filter: any) => {
   return await prisma.careReceiver.findMany({
     where: {
+      ...filter,
       deletedAt: null,
     },
     include: {

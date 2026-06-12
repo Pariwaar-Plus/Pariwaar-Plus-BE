@@ -1,8 +1,10 @@
+import { Role } from "@prisma/client";
 import { Request, Response } from "express";
 import { ZodError } from "zod";
-import * as service from "./care_assignment.service";
-import {CreateCareAssignmentSchema} from "./types/care_assignment.dto"
 import { AuthRequest } from "../../@types";
+import { getCareAgentByUserId } from "../care_agent/care_agent.service";
+import * as service from "./care_assignment.service";
+import { CreateCareAssignmentSchema } from "./types/care_assignment.dto";
 
 
 
@@ -23,7 +25,7 @@ export const createCareAssignment = async (req: Request, res: Response) => {
       message: "Care Assignment created successfully",
       data: result,
     });
-  }catch (error: any) {
+  } catch (error: any) {
     /**
      * 1. Zod validation errors
      */
@@ -35,8 +37,8 @@ export const createCareAssignment = async (req: Request, res: Response) => {
       });
     }
 
-  
-     
+
+
     console.error("CareAgent Assignment:", error);
 
     /**
@@ -53,9 +55,28 @@ export const createCareAssignment = async (req: Request, res: Response) => {
 /**
  * ADMIN: Get all care agents
  */
-export const getAssignmentByCareReceiver = async (req: Request, res: Response) => {
+export const getAssignmentByCareReceiver = async (req: AuthRequest, res: Response) => {
   try {
-    const assignments = await service.getAssignmentByCareReceiver(req.params.careReceiverId as string);
+    const user = req.user;
+
+    let filter: any = {};
+    if (user) {
+
+      if (user.role === Role.ADMIN) {
+        if (req.query.careReceiverId) {
+          filter.careReceiverId = req.query.careReceiverId;
+        }
+      }
+
+      if (user.role === Role.CARE_AGENT) {
+        const careAgent = await getCareAgentByUserId(user.id)
+        if (careAgent) {
+          filter.careAgentId = careAgent.id
+        }
+      }
+    
+    }
+    const assignments = await service.getAssignmentByCareReceiver(filter);
     res.json(assignments);
   } catch (err: any) {
     res.status(500).json({ message: "Internal server error" });
@@ -63,7 +84,7 @@ export const getAssignmentByCareReceiver = async (req: Request, res: Response) =
 };
 
 export const deleteCareAssignmment = async (req: AuthRequest, res: Response) => {
-  
+
   const careAssignmentId = req.params.id as string;
   try {
     if (req.user?.role !== 'ADMIN') {

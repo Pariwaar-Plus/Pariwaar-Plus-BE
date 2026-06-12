@@ -132,7 +132,6 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
       } catch (emailError) {
           console.error("Welcome email failed to send:", emailError);
       }
-      
       return {
         ...result,
         tempPassword

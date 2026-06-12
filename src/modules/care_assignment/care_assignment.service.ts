@@ -58,11 +58,12 @@ export const createCareAssignment = async (
 };
 
 export const getAssignmentByCareReceiver = async (
-  careReceiverId: string
+  filter: any
 ) => {
+  console.log(filter)
   return await prisma.careAssignment.findMany({
     where: {
-      careReceiverId,
+      ...filter,
       status: "ACTIVE",
       deletedAt: null
     },

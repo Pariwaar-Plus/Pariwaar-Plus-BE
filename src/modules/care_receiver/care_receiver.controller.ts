@@ -6,6 +6,8 @@ import {
   UpdateCareReceiverSchema,
 } from "./types/care_receiver.dto";
 import { z, ZodError } from "zod";
+import { Role } from "@prisma/client";
+import { getCareAgentByUserId } from "../care_agent/care_agent.service";
 
 const uuidSchema = z.uuid("Invalid care receiver ID format");
 
@@ -75,9 +77,21 @@ export const createCareReceiver = async (req: Request, res: Response) => {
 /**
  * ADMIN: Get all care receivers
  */
-export const getAll = async (req: Request, res: Response) => {
+export const getAll = async (req: AuthRequest, res: Response) => {
   try {
-    const careReceivers = await service.getActiveCareReceivers();
+    const user = req.user;
+
+    let filter: any = {};
+    if (user) {
+      if (user.role === Role.CLIENT) {
+        const client = await getCareAgentByUserId(user.id)
+        if (client) {
+          filter.client = client.id
+        }
+      }
+
+    }
+    const careReceivers = await service.getActiveCareReceivers(filter);
     res.json(careReceivers);
   } catch (err: any) {
     res.status(500).json({ message: "Internal server error" });
