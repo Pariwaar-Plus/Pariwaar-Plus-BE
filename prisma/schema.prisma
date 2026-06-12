@@ -41,7 +41,7 @@ model User {
   client    Client?
 
   deletedAt DateTime?
-
+  @@map("users")
 
 }
 
@@ -107,6 +107,7 @@ model CareAgent {
   visitLogs     VisitLog[]
 
   deletedAt DateTime?
+  @@map("careagents")
 }
 
 model Client {
@@ -136,6 +137,7 @@ model Client {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  @@map("clients")
 }
 
 
@@ -174,6 +176,7 @@ model CareReceiver {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  @@map("carereceivers")
 }
 
 enum MobilityStatus {
@@ -203,6 +206,7 @@ model CareAssignment {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  @@map("careassignment")
 }
 
 enum AssignmentStatus {
@@ -266,6 +270,7 @@ model VisitLog {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
+  @@map("visitlogs")
 }
 
 enum VisitStatus {

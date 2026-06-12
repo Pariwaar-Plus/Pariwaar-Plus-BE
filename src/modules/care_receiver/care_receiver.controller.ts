@@ -105,7 +105,6 @@ export const getCareReceiver = async (
     }
 
     const careReceiver = await service.getCareReceiverById(parsed.data);
-
     res.status(200).json({
       success: true,
       data: careReceiver,

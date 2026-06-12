@@ -2,28 +2,33 @@ import { z } from "zod";
 
 export const CreateCareAssignmentSchema = z.object({
     // ── Core relations ──
-    careAgentId:    z.string().uuid("Invalid care agent ID"),
-    careReceiverId: z.string().uuid("Invalid care receiver ID"),
+    careAgentId: z.uuid("Invalid care agent ID"),
+    careReceiverId: z.uuid("Invalid care receiver ID"),
 
     // ── Timing ──
     startDate: z.coerce.date(),
-    endDate:   z.coerce.date().optional(),
+    endDate: z.preprocess(
+        (val) => (val === "" ? undefined : val),
+        z.coerce.date().optional()
+    ),
+
+
 
     // ── Details ──
     status: z.enum(["ACTIVE", "COMPLETED", "CANCELLED", "ON_HOLD"]).default("ACTIVE"),
-    notes:  z.string().optional(),
+    notes: z.string().optional(),
 })
-.refine(
-    (data) => {
-        if (data.endDate) {
-            return data.endDate > data.startDate;
-        }
-        return true;
-    },
-    { message: "End date must be after start date", path: ["endDate"] }
-);
+    .refine(
+        (data) => {
+            if (data.endDate) {
+                return data.endDate > data.startDate;
+            }
+            return true;
+        },
+        { message: "End date must be after start date", path: ["endDate"] }
+    );
 
-export const UpdateCareAssignmentSchema = CreateCareAssignmentSchema
+export const UpdateCareAssignmentSchema = z.object(CreateCareAssignmentSchema.shape)
     .omit({ careAgentId: true, careReceiverId: true })
     .partial();
 

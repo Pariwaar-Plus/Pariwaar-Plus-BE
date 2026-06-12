@@ -2,7 +2,7 @@ import { Prisma, Role, CareAgentStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { hashPassword } from "../../utils/hash";
 import crypto from "crypto";
-import { sendWelcomeEmail } from "../../utils/email.util";
+import { sendCareAgentWelcomeEmail } from "../../utils/email.util";
 import { CreateCareAgentDTO, RegisterCareAgentResult } from "./types/care_agent.dto";
 import { generateEmployeeId } from "../../utils/employee_id";
 import { AppError } from "../../../lib/erros";
@@ -128,7 +128,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
       // Post-Transaction: Send Email
 
       try {
-          await sendWelcomeEmail(result.user.email, result.user.name, tempPassword);
+          await sendCareAgentWelcomeEmail(result.user.email, result.user.name, result.careAgent.employeeId, tempPassword);
       } catch (emailError) {
           console.error("Welcome email failed to send:", emailError);
       }
