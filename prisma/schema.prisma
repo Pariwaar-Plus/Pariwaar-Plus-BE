@@ -195,18 +195,41 @@ model CareAssignment {
   careReceiver   CareReceiver @relation(fields: [careReceiverId], references: [id])
 
   status     AssignmentStatus @default(ACTIVE)
-  startDate  DateTime         @default(now())
-  endDate    DateTime?
   notes      String?
 
   // ── Relations ──
   visitLogs VisitLog[]
+  assignmentSchedules CareAssignmentSchedule[]
 
   // ── Meta ──
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  @@unique([careAgentId, careReceiverId])
   @@map("careassignment")
+}
+
+model CareAssignmentSchedule {
+  id             String   @id @default(uuid())
+  assignmentId String
+  assignment   CareAssignment @relation(fields: [assignmentId], references: [id])
+  startDate DateTime
+  endDate DateTime?
+  frequency AssignmentFrequency
+  
+  // ── Meta ──
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  @@map("careassignmentschedule")
+}
+
+enum AssignmentFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  ON_DEMAND
 }
 
 enum AssignmentStatus {

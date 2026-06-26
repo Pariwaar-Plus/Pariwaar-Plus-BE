@@ -79,6 +79,7 @@ export const getAssignmentByCareReceiver = async (req: AuthRequest, res: Respons
     const assignments = await service.getAssignmentByCareReceiver(filter);
     res.json(assignments);
   } catch (err: any) {
+    console.log(err)
     res.status(500).json({ message: "Internal server error" });
   }
 };

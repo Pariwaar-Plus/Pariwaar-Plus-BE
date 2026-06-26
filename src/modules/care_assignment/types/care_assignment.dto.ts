@@ -11,11 +11,8 @@ export const CreateCareAssignmentSchema = z.object({
         (val) => (val === "" ? undefined : val),
         z.coerce.date().optional()
     ),
-
-
-
+    frequency: z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "ON_DEMAND"]),
     // ── Details ──
-    status: z.enum(["ACTIVE", "COMPLETED", "CANCELLED", "ON_HOLD"]).default("ACTIVE"),
     notes: z.string().optional(),
 })
     .refine(

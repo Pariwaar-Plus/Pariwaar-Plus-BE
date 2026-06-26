@@ -49,7 +49,7 @@ export const createVisitLog = async (userId: string, data: CreateVisitLogDTO) =>
  * Fetches all logs for a specific parent.
  */
 export const getVisitHistory = async (viewerId: string, role: string, careReceiverId: string) => {
-  
+
   // 1. Authorization Logic
   if (role === 'CLIENT') {
     // Verify this parent belongs to this client
@@ -57,7 +57,7 @@ export const getVisitHistory = async (viewerId: string, role: string, careReceiv
       where: { id: careReceiverId, clientId: viewerId }
     });
     if (!ownership) throw new Error("Unauthorized: This is not your family record.");
-  } 
+  }
 
   else if (role === 'CARE_AGENT') {
     // Step 1: Find CareAgent profile using User.id
@@ -81,7 +81,7 @@ export const getVisitHistory = async (viewerId: string, role: string, careReceiv
       }
     });
 
-        if (!assignment || assignment.status !== "ACTIVE") {
+    if (!assignment || assignment.status !== "ACTIVE") {
       throw new Error(
         "Unauthorized: You are not assigned to this patient."
       );
@@ -99,3 +99,20 @@ export const getVisitHistory = async (viewerId: string, role: string, careReceiv
     }
   });
 };
+
+
+export const getVisitByAssignmentAndSchedule = async (assignmentIds: string[], fromDate: Date) => {
+  const visits = await prisma.visitLog.findMany({
+    where: {
+      assignmentId: { in: assignmentIds },
+      scheduledAt: { gte: fromDate },
+      status: { not: "CANCELLED" },
+    },
+    orderBy: {
+      scheduledAt: "asc",
+    },
+  });
+
+  return visits
+
+}

@@ -1,5 +1,8 @@
+import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, VisitLog } from "@prisma/client";
 import prisma from "../../config/prisma";
+import { getVisitByAssignmentAndSchedule } from "../home_visit/home_visit.service";
 import { CreateCareAssignmentDTO } from "./types/care_assignment.dto";
+import { es } from "zod/locales";
 
 export const createCareAssignment = async (
   data: CreateCareAssignmentDTO
@@ -7,9 +10,9 @@ export const createCareAssignment = async (
   const {
     careAgentId,
     careReceiverId,
-    status = "ACTIVE",
-    startDate,
-    endDate,
+    frequency,
+    startDate: newStartDate,
+    endDate: newEndDate,
     notes,
   } = data;
 
@@ -27,54 +30,288 @@ export const createCareAssignment = async (
     throw new Error("Care receiver not found");
   }
 
-  // Optional business rule: prevent duplicate ACTIVE assignment
-  const existingActive = await prisma.careAssignment.findFirst({
-    where: {
-      careAgentId,
-      careReceiverId,
-      status: "ACTIVE",
-    },
-  });
 
-  if (existingActive) {
-    throw new Error("Active assignment already exists");
-  }
 
-  // Create assignment
-  return await prisma.careAssignment.create({
-    data: {
-      careAgentId,
-      careReceiverId,
-      status,
-      startDate: startDate ? new Date(startDate) : new Date(),
-      endDate: endDate ? new Date(endDate) : null,
-      notes,
-    },
-    include: {
-      careAgent: true,
-      careReceiver: true,
-    },
+  await prisma.$transaction(async (tx) => {
+    const overlap = await tx.careAssignmentSchedule.findFirst({
+      where: {
+        assignment: {
+          careAgentId,
+          careReceiverId,
+        },
+        startDate: { lte: newEndDate },
+        endDate: { gte: newStartDate },
+      },
+    });
+
+    if (overlap) {
+      throw new Error(
+        "An assignment already exists for this agent and receiver in the selected date range."
+      );
+    }
+
+    const assignment = await tx.careAssignment.create({
+      data: {
+        careAgentId,
+        careReceiverId,
+        status: "ACTIVE",
+        notes,
+      },
+    });
+
+    await tx.careAssignmentSchedule.create({
+      data: {
+        assignmentId: assignment.id,
+        startDate: newStartDate,
+        endDate: newEndDate,
+        frequency,
+      },
+    });
+
+    return assignment;
   });
 };
+
+const getScheduleData = async (assignments: CareAssignment[]) => {
+  const now = new Date();
+  const assignmentIds = assignments.map((a) => a.id)
+  //fetch all schedules
+  const schedules = await prisma.careAssignmentSchedule.findMany({
+    where: {
+      assignmentId: { in: assignmentIds },
+      deletedAt: null,
+      startDate: { lte: now },
+      OR: [
+        { endDate: null },
+        { endDate: { gte: now } },
+      ],
+    },
+    orderBy: {
+      startDate: "desc",
+    },
+  });
+
+  const scheduleMap = new Map<string, CareAssignmentSchedule>();
+
+  for (const s of schedules) {
+    if (!scheduleMap.has(s.assignmentId)) {
+      scheduleMap.set(s.assignmentId, s);
+    }
+  }
+
+  //fetch visited dates
+  const visits = await getVisitByAssignmentAndSchedule(assignmentIds, now)
+
+  const visitMap = new Map<string, VisitLog[]>();
+
+  for (const visit of visits) {
+    const arr = visitMap.get(visit.assignmentId) ?? [];
+    arr.push(visit);
+    visitMap.set(visit.assignmentId, arr);
+  }
+
+  const result = assignments.map((a) => {
+    const schedule = scheduleMap.get(a.id);
+    const assignmentVisits = visitMap.get(a.id) ?? [];
+    const existingVisits = new Set(
+      assignmentVisits.map(v => v.scheduledAt.toISOString().split("T")[0])
+    );
+
+    const nextVisit = generateNextVisits(
+      schedule!,
+      existingVisits,
+      now,
+      1
+    );
+
+    return {
+      ...a,
+      schedule: {
+        frequency: schedule?.frequency,
+        nextVisit,
+      }
+    };
+  });
+
+  return result
+
+}
+
+function getNextDate(date: Date, frequency: AssignmentFrequency) {
+  const d = new Date(date);
+
+  switch (frequency) {
+    case "DAILY":
+      d.setDate(d.getDate() + 1);
+      break;
+
+    case "WEEKLY":
+      d.setDate(d.getDate() + 7);
+      break;
+
+    case "BIWEEKLY":
+      d.setDate(d.getDate() + 14);
+      break;
+
+    case "MONTHLY":
+      d.setMonth(d.getMonth() + 1);
+      break;
+  }
+
+  return d;
+}
+
+function generateNextVisits(schedule: CareAssignmentSchedule, visitedSet: Set<string>, fromDate: Date, limit: number) {
+  const result = [];
+
+
+  let currentDate = new Date(fromDate);
+  currentDate.setDate(currentDate.getDate() + 1)
+
+
+  let cursor = new Date(
+    Math.max(currentDate.getTime(), schedule.startDate.getTime())
+  );
+
+  while (
+    cursor <= (schedule.endDate ?? Infinity) &&
+    result.length < limit
+  ) {
+    const key = cursor.toISOString();
+
+    if (!visitedSet.has(key)) {
+      result.push({
+        scheduledDate: new Date(cursor),
+        assignmentId: schedule.assignmentId,
+        status: "SCHEDULED"
+      });
+    } else {
+      //TODO
+    }
+
+    cursor = getNextDate(cursor, schedule.frequency);
+  }
+
+  // if (result.length >= limit) break;
+
+  return result.slice(0, limit);
+}
+
+function generateNextVisit(
+  schedule: CareAssignmentSchedule,
+  now: Date,
+): Date | null {
+  let cursor = new Date(schedule.startDate);
+
+  // Advance until the occurrence is today or in the future
+  while (cursor < now) {
+    cursor = getNextDate(cursor, schedule.frequency);
+  }
+
+  if (schedule.endDate && cursor > schedule.endDate) {
+    return null;
+  }
+
+  return cursor;
+}
 
 export const getAssignmentByCareReceiver = async (
   filter: any
 ) => {
-  console.log(filter)
-  return await prisma.careAssignment.findMany({
+
+  const assignments = await prisma.careAssignment.findMany({
     where: {
       ...filter,
       status: "ACTIVE",
       deletedAt: null
     },
-    orderBy: {
-      startDate: "desc",
-    },
+
     include: {
-      careAgent: { include: { user: { select: { name: true, email: true } } } },
-      careReceiver: true,
+      careAgent: { select: { user: { select: { name: true, email: true } }, employeeId: true } },
+      careReceiver: { select: { name: true, city: true } },
     },
   });
+  const now = new Date()
+  const schedules = await prisma.careAssignmentSchedule.findMany({
+    where: {
+      assignmentId: {
+        in: assignments.map(a => a.id),
+      },
+      deletedAt: null,
+      startDate: { lte: now },
+      OR: [
+        { endDate: null },
+        { endDate: { gte: now } },
+      ],
+    },
+  });
+  const scheduleMap = new Map(
+    schedules.map(s => [s.assignmentId, s])
+  );
+
+  const assignmentIds = assignments.map(a => a.id);
+
+  // const recentVisits = await prisma.$queryRaw`
+  //   SELECT *
+  //   FROM (
+  //     SELECT
+  //       v.*,
+  //       ROW_NUMBER() OVER (
+  //         PARTITION BY v."assignmentId"
+  //         ORDER BY v."visitedAt" DESC
+  //       ) as rn
+  //     FROM "Visit" v
+  //     WHERE
+  //       v."status" = 'COMPLETED'
+  //       AND v."deletedAt" IS NULL
+  //       AND v."assignmentId" = ANY(${assignmentIds})
+  //   ) ranked
+  //   WHERE rn <= 4;
+  // `;
+
+  const visits = await prisma.visitLog.findMany({
+    where: {
+      assignmentId: {
+        in: assignments.map(a => a.id),
+      },
+      status: "COMPLETED",
+      deletedAt: null,
+    },
+    orderBy: {
+      scheduledAt: "desc",
+    },
+  });
+
+  const visitMap = new Map<string, VisitLog[]>();
+
+  for (const visit of visits) {
+    const arr = visitMap.get(visit.assignmentId) ?? [];
+
+    if (arr.length < 4) {
+      arr.push(visit);
+    }
+
+    visitMap.set(visit.assignmentId, arr);
+  }
+  return assignments.map(assignment => {
+    const schedule = scheduleMap.get(assignment.id);
+
+    return {
+      ...assignment,
+
+      schedule: {
+        frequency: schedule?.frequency,
+        nextVisit: schedule
+          ? generateNextVisit(schedule, now)
+          : null,
+        recentVisits: visitMap.get(assignment.id) ?? [],
+      }
+
+    };
+  });
+  // const scheduleData = await getScheduleData(assignments)
+  // return scheduleData
+
 };
 
 
@@ -88,10 +325,26 @@ export const deleteCareAssignmment = async (careAssignmentId: string) => {
 
   return await prisma.$transaction(async (tx) => {
     const now = new Date();
-    await tx.careAssignment.update({
-      where: { id: careAssignmentId },
-      data: { deletedAt: now },
+
+    const assignment = await tx.careAssignment.update({
+      where: {
+        id: careAssignmentId,
+      },
+      data: {
+        deletedAt: now,
+      },
     });
+
+    await tx.careAssignmentSchedule.updateMany({
+      where: {
+        assignmentId: assignment.id,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: now,
+      },
+    });
+
 
   });
 };
