@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { CreateVisitLogDTO } from "./types/visit_log.dto";
 import { NotFoundError } from "../../../lib/error/NotfoundError";
@@ -76,11 +76,21 @@ const visitHistoryAuthorization = async (viewerId: string, role: string, careRec
 
   // 1. Authorization Logic
   if (role === 'CLIENT') {
+
+    const client = await prisma.client.findUnique({
+      where: {
+        userId: viewerId
+      }
+    });
+
+    if (!client) {
+      throw new NotFoundError("Client profile not found");
+    }
     // Verify this parent belongs to this client
     const ownership = await prisma.careReceiver.findFirst({
-      where: { id: careReceiverId, clientId: viewerId }
+      where: { id: careReceiverId, clientId: client.id }
     });
-    if (!ownership) throw new Error("Unauthorized: This is not your family record.");
+    if (!ownership) throw new ForbiddenError("Unauthorized: This is not your family record.");
   }
 
   else if (role === 'CARE_AGENT') {
@@ -159,14 +169,14 @@ export const getVisitLogById = async (viewerId: string, role: string, visitId: s
     );
   }
 
-  await checkAgentAccess(
-    viewerId,
-    undefined,
-    visit.assignmentId
-  );
+  if (role !== Role.ADMIN) {
 
-
+    await checkAgentAccess(
+      viewerId,
+      undefined,
+      visit.assignmentId
+    );
+  }
   return visit;
-
 };
 

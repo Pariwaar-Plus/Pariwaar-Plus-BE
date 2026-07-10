@@ -8,6 +8,7 @@ import {
 import { z, ZodError } from "zod";
 import { Role } from "@prisma/client";
 import { getCareAgentByUserId } from "../care_agent/care_agent.service";
+import { getClientByUserId } from "../client/client.service";
 
 const uuidSchema = z.uuid("Invalid care receiver ID format");
 
@@ -83,10 +84,16 @@ export const getAll = async (req: AuthRequest, res: Response) => {
 
     let filter: any = {};
     if (user) {
-      if (user.role === Role.CLIENT) {
-        const client = await getCareAgentByUserId(user.id)
+      if (user.role === Role.CARE_AGENT) {
+        const agent = await getCareAgentByUserId(user.id)
+        if (agent) {
+          filter.assignments.some.careAgentId = agent.id
+        }
+      }
+      else if (user.role === Role.CLIENT) {
+        const client = await getClientByUserId(user.id)
         if (client) {
-          filter.client = client.id
+          filter.clientId = client.id
         }
       }
 
