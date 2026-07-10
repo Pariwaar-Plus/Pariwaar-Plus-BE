@@ -32,7 +32,7 @@ router.get(
 router.get(
   "/:careReceiverId",
   authMiddleware,
-  authorizeRoles(Role.ADMIN),
+  // authorizeRoles(Role.ADMIN),
   getCareReceiver
 );
 

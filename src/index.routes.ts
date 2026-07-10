@@ -13,6 +13,6 @@ rootRouter.use("/care-agent", careAgentRoutes);
 rootRouter.use("/care-receiver", careReceiverRoutes);
 rootRouter.use("/care-assignment", careAssignmentRoutes);
 rootRouter.use("/client", clientRoutes);
-rootRouter.use("/home-visit", visitLogRoutes);
+rootRouter.use("/visit-logs", visitLogRoutes);
 
 export default rootRouter;

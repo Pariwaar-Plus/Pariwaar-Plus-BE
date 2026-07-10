@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Role } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { AppError } from "../../../lib/erros";
+import { AppError } from "../../../lib/error/error";
 import { hashPassword } from "../../utils/hash";
 import { sendClientWelcomeEmail  } from "../../utils/email.util";
 

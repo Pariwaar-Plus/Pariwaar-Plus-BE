@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { sendCareAgentWelcomeEmail } from "../../utils/email.util";
 import { CreateCareAgentDTO, RegisterCareAgentResult } from "./types/care_agent.dto";
 import { generateEmployeeId } from "../../utils/employee_id";
-import { AppError } from "../../../lib/erros";
+import { AppError } from "../../../lib/error/error";
 
 
 

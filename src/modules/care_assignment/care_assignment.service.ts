@@ -232,13 +232,13 @@ export const getAssignmentByCareReceiver = async (
     },
   });
   const now = new Date()
+
   const schedules = await prisma.careAssignmentSchedule.findMany({
     where: {
       assignmentId: {
         in: assignments.map(a => a.id),
       },
       deletedAt: null,
-      startDate: { lte: now },
       OR: [
         { endDate: null },
         { endDate: { gte: now } },
@@ -274,7 +274,7 @@ export const getAssignmentByCareReceiver = async (
       assignmentId: {
         in: assignments.map(a => a.id),
       },
-      status: "COMPLETED",
+      // status: "COMPLETED",
       deletedAt: null,
     },
     orderBy: {
