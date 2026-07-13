@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { AuthRequest } from "../../@types";
 import { getCareAgentByUserId } from "../care_agent/care_agent.service";
 import * as service from "./care_assignment.service";
-import { CreateCareAssignmentSchema } from "./types/care_assignment.dto";
+import { CreateCareAssignmentSchema, UpdateCareAssignmentSchema } from "./types/care_assignment.dto";
 
 
 
@@ -74,7 +74,7 @@ export const getAssignmentByCareReceiver = async (req: AuthRequest, res: Respons
           filter.careAgentId = careAgent.id
         }
       }
-    
+
     }
     const assignments = await service.getAssignmentByCareReceiver(filter);
     res.json(assignments);
@@ -83,6 +83,78 @@ export const getAssignmentByCareReceiver = async (req: AuthRequest, res: Respons
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const updateCareAssignment = async (req: AuthRequest, res: Response) => {
+  try {
+    /**
+     * 1. Validate route param
+     */
+    const assignmentId = req.params.assignmentId as string;
+
+    if (!assignmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Assignment ID is required",
+      });
+    }
+
+    /**
+     * 2. Validate request body
+     */
+    const validatedData = UpdateCareAssignmentSchema.parse(req.body);
+
+    /**
+     * 3. Call service layer
+     */
+    const updateCareAssignment = await service.updateCareAssignment(
+      assignmentId,
+      validatedData
+    );
+
+    /**
+   * 4. Success response
+   */
+    return res.status(200).json({
+      success: true,
+      message: "Care Assignment updated successfully",
+      data: updateCareAssignment,
+    });
+
+  } catch (error: any) {
+
+    console.log(error)
+    /**
+     * 1. Zod validation errors
+     */
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.issues,
+      });
+    }
+
+    /**
+     * 2. Not found errors
+     */
+    if (
+      typeof error.message === "string" && error.message.toLowerCase().includes("not found")
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    /**
+     * 3. Generic fallback
+     */
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
 
 export const deleteCareAssignmment = async (req: AuthRequest, res: Response) => {
 

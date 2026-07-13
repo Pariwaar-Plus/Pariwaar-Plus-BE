@@ -1,8 +1,9 @@
 import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, VisitLog } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { getVisitByAssignmentAndSchedule } from "../home_visit/home_visit.service";
-import { CreateCareAssignmentDTO } from "./types/care_assignment.dto";
+import { CreateCareAssignmentDTO, UpdateCareAssignmentDTO } from "./types/care_assignment.dto";
 import { es } from "zod/locales";
+import { NotFoundError } from "../../../lib/error/NotfoundError";
 
 export const createCareAssignment = async (
   data: CreateCareAssignmentDTO
@@ -305,6 +306,8 @@ export const getAssignmentByCareReceiver = async (
           ? generateNextVisit(schedule, now)
           : null,
         recentVisits: visitMap.get(assignment.id) ?? [],
+        startDate: schedule?.startDate,
+        endDate: schedule?.endDate
       }
 
     };
@@ -313,6 +316,129 @@ export const getAssignmentByCareReceiver = async (
   // return scheduleData
 
 };
+
+export const updateCareAssignment = async (assignmentId: string, data: UpdateCareAssignmentDTO) => {
+  const existing = await prisma.careAssignment.findUnique({
+    where: { id: assignmentId },
+    select: { id: true, deletedAt: true },
+  });
+
+  if (!existing || existing.deletedAt) {
+    throw new NotFoundError("Care assignment not found");
+  }
+
+
+  const result = await prisma.$transaction(async (tx) => {
+
+    let resultSchedule
+
+    const schedule = await tx.careAssignmentSchedule.findFirst({
+      where: {
+        assignmentId,
+        deletedAt: null,
+        OR: [
+          { endDate: null },
+          { endDate: { gte: new Date() } },
+        ],
+      },
+    });
+
+    if (!schedule) {
+      throw new NotFoundError("Active schedule not found");
+    }
+
+
+    // frequency changed
+    if (
+      data.frequency &&
+      data.frequency !== schedule.frequency
+    ) {
+
+      await tx.careAssignmentSchedule.update({
+        where: {
+          id: schedule.id,
+        },
+        data: {
+          endDate: new Date(),
+        },
+      });
+
+
+      resultSchedule = await tx.careAssignmentSchedule.create({
+        data: {
+          assignmentId,
+          startDate: data.startDate ?? new Date(),
+          endDate: data.endDate
+            ? new Date(data.endDate)
+            : null,
+          frequency: data.frequency,
+        },
+      });
+
+      await tx.visitLog.updateMany({
+        where: {
+          assignmentId,
+          scheduledAt: {
+            gte: new Date()
+          }
+        },
+        data: {
+          deletedAt: new Date()
+        }
+      })
+
+
+    }
+
+    // only end date changed
+    else if (data.endDate !== undefined) {
+
+      resultSchedule = await tx.careAssignmentSchedule.update({
+        where: {
+          id: schedule.id,
+        },
+        data: {
+          endDate: new Date(data.endDate),
+        },
+      });
+
+
+      await tx.visitLog.updateMany({
+        where: {
+          assignmentId,
+          scheduledAt: {
+            gt: new Date(data.endDate),
+          },
+        },
+        data: {
+          deletedAt: new Date()
+        }
+      })
+
+
+
+    }
+
+
+    // assignment fields
+    // if (data.notes !== undefined) {
+    const updated = await tx.careAssignment.update({
+      where: {
+        id: assignmentId,
+      },
+      data: {
+        ...(data.notes != undefined && { notes: data.notes }),
+      },
+    });
+    // }
+    return { ...updated, schedule: resultSchedule }
+  });
+
+
+
+
+  return result;
+}
 
 
 export const deleteCareAssignmment = async (careAssignmentId: string) => {

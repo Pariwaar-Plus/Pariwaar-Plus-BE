@@ -3,7 +3,7 @@ import express from "express";
 import { Role } from "@prisma/client"; // Import the Enum
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
-import { createCareAssignment, deleteCareAssignmment, getAssignmentByCareReceiver } from "./care_assignment.controller";
+import { createCareAssignment, deleteCareAssignmment, getAssignmentByCareReceiver, updateCareAssignment } from "./care_assignment.controller";
 
 const router = express.Router();
 
@@ -20,6 +20,13 @@ router.get(
   authMiddleware,
   getAssignmentByCareReceiver
 );
+
+router.patch("/:assignmentId", 
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  updateCareAssignment
+);
+
 
 
 router.delete(
