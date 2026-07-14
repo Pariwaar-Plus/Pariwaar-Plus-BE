@@ -1,6 +1,6 @@
 import { Prisma, Role } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { CreateVisitLogDTO } from "./types/visit_log.dto";
+import { CreateVisitLogDTO, UpdateVisitLogDTO } from "./types/visit_log.dto";
 import { NotFoundError } from "../../../lib/error/NotfoundError";
 import { ForbiddenError } from "../../../lib/error/ForbiddenError";
 
@@ -70,6 +70,8 @@ const checkAgentAccess = async (viewerId: string, careReceiverId?: string, assig
       "Unauthorized: You are not assigned to this patient."
     );
   }
+
+  return assignment.id
 }
 
 const visitHistoryAuthorization = async (viewerId: string, role: string, careReceiverId: string) => {
@@ -94,7 +96,8 @@ const visitHistoryAuthorization = async (viewerId: string, role: string, careRec
   }
 
   else if (role === 'CARE_AGENT') {
-    await checkAgentAccess(viewerId, careReceiverId, undefined)
+    const assignmentId = await checkAgentAccess(viewerId, careReceiverId, undefined)
+    return assignmentId
   }
 }
 
@@ -102,17 +105,22 @@ const visitHistoryAuthorization = async (viewerId: string, role: string, careRec
  * GET Visit History
  * Fetches all logs for a specific parent.
  */
-export const getVisitHistory = async (viewerId: string, role: string, careReceiverId: string, visitId?: string) => {
-  await visitHistoryAuthorization(viewerId, role, careReceiverId)
+export const getHistoryByCareReceiver = async (viewerId: string, role: string, careReceiverId: string, visitId?: string) => {
+  const assignmentId = await visitHistoryAuthorization(viewerId, role, careReceiverId)
 
   let filter: Prisma.VisitLogWhereInput = {}
+
+  // filter.careAgentId = viewerId
+
+  if (assignmentId) {
+    filter.assignmentId = assignmentId
+  }
 
   if (visitId) {
     filter.id = visitId
   }
 
 
-  // 3. If Admin or authorized, return the logs
   return await prisma.visitLog.findMany({
     where: filter,
     orderBy: { createdAt: 'desc' },
@@ -145,6 +153,7 @@ export const getVisitByAssignmentAndSchedule = async (assignmentIds: string[], f
       assignmentId: { in: assignmentIds },
       scheduledAt: { gte: fromDate },
       status: { not: "CANCELLED" },
+      deletedAt: null
     },
     orderBy: {
       scheduledAt: "asc",
@@ -159,8 +168,13 @@ export const getVisitByAssignmentAndSchedule = async (assignmentIds: string[], f
 export const getVisitLogById = async (viewerId: string, role: string, visitId: string) => {
   const visit = await prisma.visitLog.findUnique({
     where: {
-      id: visitId
+      id: visitId,
+      deletedAt: null
     },
+    include: {
+      careAgent: { select: { user: { select: { id: true, name: true } } } },
+      assignment: { select: { careReceiver: { select: { name: true, id: true } } } },
+    }
   });
 
   if (!visit) {
@@ -180,3 +194,426 @@ export const getVisitLogById = async (viewerId: string, role: string, visitId: s
   return visit;
 };
 
+function buildGroupedResponse(
+  visits: any,
+  page: number,
+  limit: number
+) {
+
+  const grouped = new Map();
+
+  for (const visit of visits) {
+
+    const receiver =
+      visit.assignment.careReceiver;
+
+    if (!grouped.has(receiver.id)) {
+
+      grouped.set(receiver.id, {
+
+        careReceiver: {
+
+          id: receiver.id,
+
+          name: receiver.name,
+
+          city: receiver.city,
+
+        },
+
+        totalVisits: 0,
+
+        completedVisits: 0,
+
+        missedVisits: 0,
+
+        cancelledVisits: 0,
+
+        lastVisit: null,
+
+        recentVisits: [],
+
+      });
+
+    }
+
+    const group =
+      grouped.get(receiver.id);
+
+    group.totalVisits++;
+
+    if (visit.status === "COMPLETED")
+      group.completedVisits++;
+
+    if (visit.status === "MISSED")
+      group.missedVisits++;
+
+    if (visit.status === "CANCELLED")
+      group.cancelledVisits++;
+
+    if (!group.lastVisit) {
+
+      group.lastVisit = visit.visitedAt;
+
+    }
+
+    if (group.recentVisits.length < 3) {
+
+      group.recentVisits.push({
+
+        id: visit.id,
+
+        status: visit.status,
+
+        duration: visit.duration,
+
+        visitedAt: visit.visitedAt,
+
+        careAgent: {
+
+          id: visit.assignment.careAgent.id,
+
+          name:
+            visit.assignment.careAgent.user
+              .name,
+
+        },
+
+      });
+
+    }
+
+  }
+
+  const result =
+    [...grouped.values()];
+
+  const total =
+    result.length;
+
+  const start =
+    (page - 1) * limit;
+
+  return {
+
+    data: result.slice(
+      start,
+      start + limit
+    ),
+
+    pagination: {
+
+      page,
+
+      limit,
+
+      total,
+
+      totalPages: Math.ceil(
+        total / limit
+      ),
+
+    },
+
+  };
+
+}
+
+// export async function getVisitLogs(filters: any) {
+
+//   
+//   const visits = await prisma.visitLog.findMany({
+
+//     where,
+
+//     include: {
+
+//       assignment: {
+
+//         include: {
+
+//           careReceiver: true,
+
+//           careAgent: {
+
+//             include: {
+
+//               user: true,
+
+//             },
+
+//           },
+
+//         },
+
+//       },
+
+//     },
+
+//     orderBy: {
+
+//       scheduledAt: "desc",
+
+//     },
+
+//   });
+
+//   return buildGroupedResponse(
+//     visits,
+//     filters.page,
+//     filters.limit
+//   );
+
+// }
+
+
+export const getVisitLogs = async (filters: any) => {
+
+  const where: Prisma.VisitLogWhereInput = {};
+  where.deletedAt = null
+
+  if (filters.status) {
+    where.status = filters.status;
+  }
+
+  if (filters.careAgentId) {
+    where.careAgentId = filters.careAgentId
+  }
+
+  if (filters.careReceiverId) {
+    where.assignment = {
+      careReceiverId: filters.careReceiverId,
+    };
+  }
+
+
+  if (filters.from || filters.to) {
+    where.scheduledAt = {};
+    if (filters.from) {
+      where.scheduledAt.gte = new Date(filters.from);
+    }
+
+    if (filters.to) {
+      where.scheduledAt.lte = new Date(filters.to);
+    }
+
+  }
+
+  const visits = await prisma.visitLog.findMany({
+    where,
+    include: {
+      careAgent: {
+        include: {
+          user: true,
+        },
+      },
+      assignment: {
+        include: {
+          careReceiver: true,
+
+        },
+      },
+    },
+    orderBy: {
+      scheduledAt: "desc",
+    },
+  });
+
+
+  return visits
+}
+
+export const updateVisitLog = async (
+  visitLogId: string,
+  data: UpdateVisitLogDTO
+) => {
+
+  const existing = await prisma.visitLog.findUnique({
+    where: {
+      id: visitLogId,
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      deletedAt: true,
+    },
+  });
+
+
+  if (!existing || existing.deletedAt) {
+    throw new NotFoundError(
+      "Visit log not found"
+    );
+  }
+
+
+
+  const updated = await prisma.visitLog.update({
+
+    where: {
+      id: visitLogId,
+      deletedAt: null
+    },
+
+    data: {
+      ...(data.scheduledAt !== undefined && {
+        scheduledAt: new Date(data.scheduledAt),
+      }),
+
+
+      ...(data.checkInAt !== undefined && {
+        checkInAt: data.checkInAt
+          ? new Date(data.checkInAt)
+          : null,
+      }),
+
+
+      ...(data.checkOutAt !== undefined && {
+        checkOutAt: data.checkOutAt
+          ? new Date(data.checkOutAt)
+          : null,
+      }),
+
+
+      ...(data.status !== undefined && {
+        status: data.status,
+      }),
+
+
+      ...(data.cancellationReason !== undefined && {
+        cancellationReason: data.cancellationReason,
+      }),
+
+
+
+      // Vitals
+
+      ...(data.bloodPressureSystolic !== undefined && {
+        bloodPressureSystolic:
+          data.bloodPressureSystolic,
+      }),
+
+      ...(data.bloodPressureDiastolic !== undefined && {
+        bloodPressureDiastolic:
+          data.bloodPressureDiastolic,
+      }),
+
+      ...(data.pulseRate !== undefined && {
+        pulseRate: data.pulseRate,
+      }),
+
+      ...(data.temperature !== undefined && {
+        temperature: data.temperature,
+      }),
+
+      ...(data.oxygenSaturation !== undefined && {
+        oxygenSaturation:
+          data.oxygenSaturation,
+      }),
+
+      ...(data.weight !== undefined && {
+        weight: data.weight,
+      }),
+
+      ...(data.bloodSugar !== undefined && {
+        bloodSugar: data.bloodSugar,
+      }),
+
+      ...(data.respiratoryRate !== undefined && {
+        respiratoryRate: data.respiratoryRate,
+      }),
+
+
+
+      // Wellbeing
+
+      ...(data.painLevel !== undefined && {
+        painLevel: data.painLevel,
+      }),
+
+      ...(data.mood !== undefined && {
+        mood: data.mood,
+      }),
+
+
+
+      // Medication
+
+      ...(data.medicationsGiven !== undefined && {
+        medicationsGiven:
+          data.medicationsGiven,
+      }),
+
+      ...(data.medicationsSkipped !== undefined && {
+        medicationsSkipped:
+          data.medicationsSkipped,
+      }),
+
+
+
+      // Clinical
+
+      ...(data.symptoms !== undefined && {
+        symptoms: data.symptoms,
+      }),
+
+      ...(data.woundCare !== undefined && {
+        woundCare: data.woundCare,
+      }),
+
+      ...(data.woundCondition !== undefined && {
+        woundCondition: data.woundCondition,
+      }),
+
+
+
+      // Mobility
+
+      ...(data.mobilityAssessment !== undefined && {
+        mobilityAssessment:
+          data.mobilityAssessment,
+      }),
+
+      ...(data.mobilityNotes !== undefined && {
+        mobilityNotes:
+          data.mobilityNotes,
+      }),
+
+
+
+      // Notes
+
+      ...(data.agentNotes !== undefined && {
+        agentNotes: data.agentNotes,
+      }),
+
+    },
+
+    include: {
+      assignment: true,
+    }
+
+  });
+
+
+  return updated;
+};
+
+
+export const deleteVisitLog = async (visitLogId: string) => {
+  // 1. Verify agent existence and get userId
+  const visit = await prisma.visitLog.findUnique({
+    where: { id: visitLogId, deletedAt: null },
+  });
+
+  if (!visit) throw new NotFoundError("Visit Log not found");
+
+  await prisma.visitLog.update({
+    where: {
+      id: visitLogId
+    },
+    data: {
+      deletedAt: new Date()
+    }
+  })
+};

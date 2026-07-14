@@ -447,7 +447,7 @@ export const deleteCareAssignmment = async (careAssignmentId: string) => {
     where: { id: careAssignmentId },
   });
 
-  if (!assignment) throw new Error("Care assignment not found");
+  if (!assignment) throw new NotFoundError("Care assignment not found");
 
   return await prisma.$transaction(async (tx) => {
     const now = new Date();

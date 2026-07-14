@@ -20,7 +20,14 @@ router.get(
     authMiddleware,
     // We allow all roles here, but the Service will filter ownership/assignments
     authorizeRoles(Role.ADMIN, Role.CLIENT, Role.CARE_AGENT),
-    homeVisitController.getHistory
+    homeVisitController.getHistoryByCareReceiver
+);
+
+router.get(
+    "/",
+    authMiddleware,
+    authorizeRoles(Role.ADMIN),
+    homeVisitController.getHistoryWithFilter
 );
 
 
@@ -29,6 +36,20 @@ router.get(
     authMiddleware,
     authorizeRoles(Role.ADMIN, Role.CLIENT, Role.CARE_AGENT),
     homeVisitController.getVisitLogById
+);
+
+router.patch("/:visitLogId", 
+  authMiddleware,
+  authorizeRoles(Role.ADMIN),
+  homeVisitController.updateVisitLog
+);
+
+
+router.delete(
+  "/:visitLogId",
+  authMiddleware,
+  authorizeRoles(Role.ADMIN), // Ensure only Admins can hit this
+  homeVisitController.deleteVisitLog
 );
 
 
