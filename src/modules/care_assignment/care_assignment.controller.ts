@@ -58,25 +58,8 @@ export const createCareAssignment = async (req: Request, res: Response) => {
 export const getAssignmentByCareReceiver = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
-
-    let filter: any = {};
-    if (user) {
-
-      if (user.role === Role.ADMIN) {
-        if (req.query.careReceiverId) {
-          filter.careReceiverId = req.query.careReceiverId;
-        }
-      }
-
-      if (user.role === Role.CARE_AGENT) {
-        const careAgent = await getCareAgentByUserId(user.id)
-        if (careAgent) {
-          filter.careAgentId = careAgent.id
-        }
-      }
-
-    }
-    const assignments = await service.getAssignmentByCareReceiver(filter);
+    const careReceiverId =req.query.careReceiverId
+    const assignments = await service.getAssignmentByCareReceiver(user,careReceiverId);
     res.json(assignments);
   } catch (err: any) {
     console.log(err)

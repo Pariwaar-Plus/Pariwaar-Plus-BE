@@ -1,9 +1,10 @@
-import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, VisitLog } from "@prisma/client";
+import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, Role, User, VisitLog } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { getVisitByAssignmentAndSchedule } from "../home_visit/home_visit.service";
 import { CreateCareAssignmentDTO, UpdateCareAssignmentDTO } from "./types/care_assignment.dto";
 import { es } from "zod/locales";
 import { NotFoundError } from "../../../lib/error/NotfoundError";
+import { getCareAgentByUserId } from "../care_agent/care_agent.service";
 
 export const createCareAssignment = async (
   data: CreateCareAssignmentDTO
@@ -217,8 +218,26 @@ function generateNextVisit(
 }
 
 export const getAssignmentByCareReceiver = async (
-  filter: any
+  user: any,
+  careReceiverId: string
 ) => {
+  let filter: any = {};
+  if (user) {
+
+    if (user.role === Role.ADMIN) {
+      if (careReceiverId) {
+        filter.careReceiverId = careReceiverId;
+      }
+    }
+
+    if (user.role === Role.CARE_AGENT) {
+      const careAgent = await getCareAgentByUserId(user.id)
+      if (careAgent) {
+        filter.careAgentId = careAgent.id
+      }
+    }
+
+  }
 
   const assignments = await prisma.careAssignment.findMany({
     where: {
