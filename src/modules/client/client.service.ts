@@ -5,7 +5,7 @@ import { hashPassword } from "../../utils/hash";
 import { sendClientWelcomeEmail  } from "../../utils/email.util";
 
 import { CreateClientDTO, UpdateClientDTO } from "./schemas/client.schema";
-import { Role } from "../../generated/prisma";
+import { Role } from "@prisma/client";
 
 /* ─────────────────────────────────────────────
 CREATE

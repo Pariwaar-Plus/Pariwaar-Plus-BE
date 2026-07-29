@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CareAgent, User } from "../../../generated/prisma";
+import { CareAgent, User } from "@prisma/client";
 
 const optionalString = z.string().optional().or(z.literal(""));
 

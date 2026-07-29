@@ -3,7 +3,7 @@ import * as homeVisitService from "./home_visit.service";
 import { AuthRequest } from "../../@types";
 import { CreateVisitLogSchema, UpdateVisitLogSchema } from "./types/visit_log.dto";
 import { ZodError } from "zod";
-import { VisitStatus } from "../../generated/prisma";
+import { VisitStatus } from "@prisma/client";
 
 export const logVisit = async (req: Request, res: Response) => {
     try {

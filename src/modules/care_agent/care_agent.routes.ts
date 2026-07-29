@@ -12,7 +12,7 @@ import {
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
-import { Role } from "../../generated/prisma";
+import { Role } from "@prisma/client";
 
 const router = express.Router();
 

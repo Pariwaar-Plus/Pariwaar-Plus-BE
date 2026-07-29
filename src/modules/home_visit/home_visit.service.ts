@@ -1,4 +1,4 @@
-import { Prisma, Role } from "../../generated/prisma";
+import { Prisma, Role } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { CreateVisitLogDTO, UpdateVisitLogDTO } from "./types/visit_log.dto";
 import { NotFoundError } from "../../../lib/error/NotfoundError";

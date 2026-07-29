@@ -2,7 +2,7 @@ import { Router } from "express";
 import * as homeVisitController from "./home_visit.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
-import { Role } from "../../generated/prisma";
+import { Role } from "@prisma/client";
 
 const router = Router();
 

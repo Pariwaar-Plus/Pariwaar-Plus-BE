@@ -8,7 +8,7 @@ import {
 import { z, ZodError } from "zod";
 import { getCareAgentByUserId } from "../care_agent/care_agent.service";
 import { getClientByUserId } from "../client/client.service";
-import { Role } from "../../generated/prisma";
+import { Role } from "@prisma/client";
 
 const uuidSchema = z.uuid("Invalid care receiver ID format");
 

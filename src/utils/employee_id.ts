@@ -1,4 +1,4 @@
-import { Prisma } from "../generated/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function generateEmployeeId(
     tx: Prisma.TransactionClient

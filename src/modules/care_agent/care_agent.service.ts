@@ -5,7 +5,7 @@ import { sendCareAgentWelcomeEmail } from "../../utils/email.util";
 import { CreateCareAgentDTO, RegisterCareAgentResult } from "./types/care_agent.dto";
 import { generateEmployeeId } from "../../utils/employee_id";
 import { AppError } from "../../../lib/error/error";
-import { CareAgentStatus, Prisma, Role } from "../../generated/prisma";
+import { CareAgentStatus, Prisma, Role } from "@prisma/client";
 
 
 

@@ -3,7 +3,7 @@ import express from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
 import { createCareAssignment, deleteCareAssignmment, getAssignmentByCareReceiver, updateCareAssignment } from "./care_assignment.controller";
-import { Role } from "../../generated/prisma";
+import { Role } from "@prisma/client";
 
 const router = express.Router();
 
