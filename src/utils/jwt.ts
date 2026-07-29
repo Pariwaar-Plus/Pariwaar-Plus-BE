@@ -10,7 +10,7 @@ export const generateAccessToken = (user: JwtPayload) => {
             role: user.role
         },
         process.env.ACCESS_TOKEN_SECRET as string,
-        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
+        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY as string }
     )
 }
 
