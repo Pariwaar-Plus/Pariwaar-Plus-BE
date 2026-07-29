@@ -1,9 +1,9 @@
 import express from "express";
 
-import { Role } from "@prisma/client"; // Import the Enum
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
 import { createCareAssignment, deleteCareAssignmment, getAssignmentByCareReceiver, updateCareAssignment } from "./care_assignment.controller";
+import { Role } from "../../generated/prisma";
 
 const router = express.Router();
 

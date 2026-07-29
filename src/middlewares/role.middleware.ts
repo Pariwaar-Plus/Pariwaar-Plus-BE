@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { Role } from "@prisma/client"; // Import the Enum from Prisma
+import { Role } from "../generated/prisma";
 
 export const authorizeRoles = (...roles: Role[]) => {
   return (req: any, res: Response, next: NextFunction) => {

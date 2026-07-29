@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import { Request, Response } from "express";
 import { ZodError } from "zod";
 import { AuthRequest } from "../../@types";

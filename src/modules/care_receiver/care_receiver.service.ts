@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma";
 import { CreateCareReceiverDTO, UpdateCareReceiverDTO } from "./types/care_receiver.dto";
 import { AppError } from "../../../lib/error/error";
-import { AssignmentStatus } from "@prisma/client";
+import { AssignmentStatus } from "../../generated/prisma";
 
 /**
  * Create a new Care Receiver under an existing Client

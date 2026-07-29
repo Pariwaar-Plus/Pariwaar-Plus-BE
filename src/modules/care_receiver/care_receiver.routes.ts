@@ -9,7 +9,7 @@ import {
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { authorizeRoles } from "../../middlewares/role.middleware";
-import { Role } from "@prisma/client"; // Import the Enum
+import { Role } from "../../generated/prisma";
 
 const router = express.Router();
 

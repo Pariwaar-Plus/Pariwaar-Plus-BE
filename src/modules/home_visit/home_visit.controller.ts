@@ -2,8 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import * as homeVisitService from "./home_visit.service";
 import { AuthRequest } from "../../@types";
 import { CreateVisitLogSchema, UpdateVisitLogSchema } from "./types/visit_log.dto";
-import { VisitStatus } from "@prisma/client";
 import { ZodError } from "zod";
+import { VisitStatus } from "../../generated/prisma";
 
 export const logVisit = async (req: Request, res: Response) => {
     try {

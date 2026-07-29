@@ -1,4 +1,4 @@
-import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, Role, User, VisitLog } from "@prisma/client";
+import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, Role, User, VisitLog } from "../../generated/prisma";
 import prisma from "../../config/prisma";
 import { getVisitByAssignmentAndSchedule } from "../home_visit/home_visit.service";
 import { CreateCareAssignmentDTO, UpdateCareAssignmentDTO } from "./types/care_assignment.dto";

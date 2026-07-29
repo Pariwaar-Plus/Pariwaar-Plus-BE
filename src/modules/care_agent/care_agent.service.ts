@@ -1,4 +1,3 @@
-import { Prisma, Role, CareAgentStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { hashPassword } from "../../utils/hash";
 import crypto from "crypto";
@@ -6,6 +5,7 @@ import { sendCareAgentWelcomeEmail } from "../../utils/email.util";
 import { CreateCareAgentDTO, RegisterCareAgentResult } from "./types/care_agent.dto";
 import { generateEmployeeId } from "../../utils/employee_id";
 import { AppError } from "../../../lib/error/error";
+import { CareAgentStatus, Prisma, Role } from "../../generated/prisma";
 
 
 

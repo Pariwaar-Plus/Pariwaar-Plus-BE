@@ -1,11 +1,11 @@
 import crypto from "crypto";
-import { Role } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { AppError } from "../../../lib/error/error";
 import { hashPassword } from "../../utils/hash";
 import { sendClientWelcomeEmail  } from "../../utils/email.util";
 
 import { CreateClientDTO, UpdateClientDTO } from "./schemas/client.schema";
+import { Role } from "../../generated/prisma";
 
 /* ─────────────────────────────────────────────
 CREATE
