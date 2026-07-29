@@ -51,13 +51,11 @@ export const createCareAssignment = async (req: Request, res: Response) => {
 };
 
 
-/**
- * ADMIN: Get all care agents
- */
+
 export const getAssignmentByCareReceiver = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
-    const careReceiverId =req.query.careReceiverId
+    const careReceiverId =req.query.careReceiverId as string
     const assignments = await service.getAssignmentByCareReceiver(user,careReceiverId);
     res.json(assignments);
   } catch (err: any) {
