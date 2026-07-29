@@ -10,7 +10,7 @@ export const generateAccessToken = (user: JwtPayload) => {
             role: user.role
         },
         process.env.ACCESS_TOKEN_SECRET as string,
-        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY as string }
+        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY as any }
     )
 }
 
@@ -22,7 +22,7 @@ export const generateRefreshToken = (user: JwtPayload) => {
             role: user.role
         },
         process.env.REFRESH_TOKEN_SECRET as string,
-        { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
+        { expiresIn: process.env.REFRESH_TOKEN_EXPIRY as any }
     )
 }
 
