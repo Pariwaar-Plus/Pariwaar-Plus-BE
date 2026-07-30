@@ -14,7 +14,6 @@ export const authMiddleware = ( req: AuthRequest, res: Response, next: NextFunct
   const header = req.headers.authorization;
 
   // 1. Check if header exists and starts with "Bearer "
-  console.log("heer")
   if (!header || !header.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token provided or invalid format" });
   }

@@ -262,7 +262,7 @@ export const sendPasswordResetEmail = async (
     <p style="margin:0 0 20px;font-size:15px;color:#475569;line-height:1.6;">
       Hi ${name}, we received a request to reset your password.
       Click the button below to set a new one. This link expires in
-      <strong>1 hour</strong>.
+      <strong>15 min</strong>.
     </p>
 
     <a href="${resetUrl}"

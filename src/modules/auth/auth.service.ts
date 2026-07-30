@@ -5,6 +5,9 @@ import {
   verifyRefreshToken,
 } from "../../utils/jwt";
 import { hashPassword, comparePassword } from "../../utils/hash";
+import { sendPasswordResetEmail } from "../../utils/email.util";
+import crypto from "crypto";
+import { AppError } from "../../../lib/error/error";
 
 
 /**
@@ -15,8 +18,8 @@ export const login = async (email: string, password: string) => {
   const user = await prisma.user.findUnique({
     where: { email },
     include: {
-      careAgent: true, 
-      client: true,    
+      careAgent: true,
+      client: true,
     },
   });
 
@@ -25,7 +28,7 @@ export const login = async (email: string, password: string) => {
   if (user.role === 'CLIENT' && user.client?.deletedAt) {
     throw new Error("This account has been deactivated. Please contact support.");
   }
-  
+
   if (user.role === 'CARE_AGENT' && user.careAgent?.deletedAt) {
     throw new Error("This agent account is no longer active.");
   }
@@ -59,7 +62,7 @@ export const login = async (email: string, password: string) => {
       id: user.id,
       email: user.email,
       role: user.role,
-      name:user.name
+      name: user.name
     },
   };
 };
@@ -82,7 +85,7 @@ export const refresh = async (oldToken: string) => {
   }
 
   if (stored.expiresAt < new Date()) {
-    await prisma.refreshToken.delete({ where: { token: oldToken } }).catch(() => {});
+    await prisma.refreshToken.delete({ where: { token: oldToken } }).catch(() => { });
     throw new Error("Refresh token expired");
   }
 
@@ -112,7 +115,7 @@ export const refresh = async (oldToken: string) => {
  * LOGOUT
  */
 export const logout = async (token: string) => {
-// Use deleteMany to avoid crashing if the token was already deleted or is missing
+  // Use deleteMany to avoid crashing if the token was already deleted or is missing
   await prisma.refreshToken.deleteMany({
     where: { token },
   });
@@ -146,27 +149,93 @@ export const getMe = async (userId: string) => {
 
 
 
+export const forgotPassword = async (email: string) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return
+  const token = crypto.randomBytes(32).toString("hex");
+
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+
+
+  await prisma.$transaction(async (tx) => {
+    await tx.passwordResetToken.deleteMany({
+      where: {
+        userId: user.id
+      },
+    });
+
+
+    await tx.passwordResetToken.create({
+      data: {
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        tokenHash,
+        userId: user.id
+      },
+    });
+
+  });
+  await sendPasswordResetEmail(user.email, user.name, token)
+
+}
+
+const getValidResetToken = async (token: string) => {
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const resetToken = await prisma.passwordResetToken.findFirst({
+    where: {
+      tokenHash,
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  if (!resetToken) {
+    throw new AppError("Password reset link is invalid or has expired.", 400);
+  }
+
+  return resetToken;
+};
+
+export const validatePasswordResetToken = async (
+  token: string
+): Promise<void> => {
+  await getValidResetToken(token);
+};
+
 /**
  * Change Password
  */
 
-export const changePassword = async (userId: string, data: any) => {
-  const { oldPassword, newPassword } = data;
+export const changePassword = async (token: string, password: string) => {
+  const tokenData = await getValidResetToken(token);
+  const hashedPassword = await hashPassword(password);
 
-  // 1. Fetch user
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new Error("User not found");
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: {
+        id: tokenData.userId,
+      },
+      data: {
+        password: hashedPassword,
+      },
+    });
 
-  // 2. Verify old password
-  const isMatch = await comparePassword(oldPassword, user.password);
-  if (!isMatch) throw new Error("Incorrect old password");
-
-  // 3. Hash and update new password
-  const hashedNewPassword = await hashPassword(newPassword);
-  
-  await prisma.user.update({
-    where: { id: userId },
-    data: { password: hashedNewPassword },
+    await tx.passwordResetToken.delete({
+      where: {
+        id: tokenData.id,
+      },
+    });
   });
 
   return { message: "Password updated successfully" };

@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import * as authService from "./auth.service";
 import { AuthRequest } from "../../@types";
 
@@ -81,14 +81,42 @@ export const getMe = async (req: any, res: Response) => {
   }
 };
 
+export const forgotPassword = async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    await authService.forgotPassword(email);
+
+    return res.json({
+        message:
+            "If an account exists, a password reset link has been sent."
+    });
+};
+
+export const validateResetPasswordToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { token } = req.body;
+
+    await authService.validatePasswordResetToken(token);
+
+    res.status(200).json({
+      valid: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 
 export const changePassword = async (req: Request, res: Response) => {
   try {
-    const authReq = req as unknown as AuthRequest;
-    const userId = authReq.user!.id;
+    const { token,password } = req.body;
 
-    const result = await authService.changePassword(userId, req.body);
+
+    const result = await authService.changePassword(token,password);
 
     res.status(200).json({
       success: true,

@@ -1,5 +1,5 @@
 import express from "express";
-import { login, refresh, logout, getMe, changePassword } from "./auth.controller";
+import { login, refresh, logout, getMe, changePassword, forgotPassword, validateResetPasswordToken } from "./auth.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 
 
@@ -14,8 +14,17 @@ router.post("/refresh", refresh);
 router.get("/me", authMiddleware, getMe);
 
 router.post(
-  "/change-password",
-  authMiddleware,
+  "/forgot-password",
+  forgotPassword
+);
+
+router.post(
+  "/reset-password/validate",
+  validateResetPasswordToken
+);
+
+router.post(
+  "/reset-password",
   changePassword
 );
 
