@@ -217,7 +217,25 @@ export const validatePasswordResetToken = async (
  * Change Password
  */
 
-export const changePassword = async (token: string, password: string) => {
+export const changePassword = async (userId: string, data: any) => {
+  const { oldPassword, newPassword } = data;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("User not found");
+
+  const isMatch = await comparePassword(oldPassword, user.password);
+  if (!isMatch) throw new Error("Incorrect old password");
+
+  const hashedNewPassword = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedNewPassword },
+  });
+
+  return { message: "Password updated successfully" };
+}
+
+export const resetPassword = async (token: string, password: string) => {
   const tokenData = await getValidResetToken(token);
   const hashedPassword = await hashPassword(password);
 

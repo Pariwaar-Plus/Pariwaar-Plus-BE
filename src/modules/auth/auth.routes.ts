@@ -1,5 +1,5 @@
 import express from "express";
-import { login, refresh, logout, getMe, changePassword, forgotPassword, validateResetPasswordToken } from "./auth.controller";
+import { login, refresh, logout, getMe, changePassword, forgotPassword, validateResetPasswordToken, resetPassword } from "./auth.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 
 
@@ -25,9 +25,15 @@ router.post(
 
 router.post(
   "/reset-password",
-  changePassword
+  resetPassword
 );
 
+
+router.post(
+  "/change-password",
+  authMiddleware,
+  changePassword
+);
 // Only a logged-in user should be able to logout
 router.post("/logout", authMiddleware, logout);
 
