@@ -38,6 +38,13 @@ router.get(
     homeVisitController.getVisitLogById
 );
 
+router.get(
+    "/dashboard/:clientId",
+    authMiddleware,
+    authorizeRoles(Role.ADMIN, Role.CLIENT),
+    homeVisitController.getVisitLogById
+);
+
 router.patch("/:visitLogId", 
   authMiddleware,
   authorizeRoles(Role.ADMIN),

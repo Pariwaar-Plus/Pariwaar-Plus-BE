@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import * as homeVisitService from "./home_visit.service";
 import { AuthRequest } from "../../@types";
 import { CreateVisitLogSchema, UpdateVisitLogSchema } from "./types/visit_log.dto";
-import { ZodError } from "zod";
+import z, { ZodError } from "zod";
 import { VisitStatus } from "@prisma/client";
 
 export const logVisit = async (req: Request, res: Response) => {
@@ -20,6 +20,7 @@ export const logVisit = async (req: Request, res: Response) => {
             data: visit
         });
     } catch (err: any) {
+        console.log(err)
         res.status(400).json({
             success: false,
             message: "Error occured while saving log. Please Try again"
@@ -201,6 +202,7 @@ export const deleteVisitLog = async (req: AuthRequest, res: Response) => {
         });
     }
 };
+
 
 
 

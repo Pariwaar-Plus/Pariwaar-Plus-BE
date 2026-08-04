@@ -1,8 +1,8 @@
 import { Prisma, Role } from "@prisma/client";
+import { ForbiddenError } from "../../../lib/error/ForbiddenError";
+import { NotFoundError } from "../../../lib/error/NotfoundError";
 import prisma from "../../config/prisma";
 import { CreateVisitLogDTO, UpdateVisitLogDTO } from "./types/visit_log.dto";
-import { NotFoundError } from "../../../lib/error/NotfoundError";
-import { ForbiddenError } from "../../../lib/error/ForbiddenError";
 
 export const createVisitLog = async (userId: string, data: CreateVisitLogDTO) => {
   // 1. Get the Care Agent's profile ID from their User ID
@@ -108,21 +108,8 @@ const visitHistoryAuthorization = async (viewerId: string, role: string, careRec
 export const getHistoryByCareReceiver = async (viewerId: string, role: string, careReceiverId: string, visitId?: string) => {
   const assignmentId = await visitHistoryAuthorization(viewerId, role, careReceiverId)
 
-  let filter: Prisma.VisitLogWhereInput = {}
-
-  // filter.careAgentId = viewerId
-
-  if (assignmentId) {
-    filter.assignmentId = assignmentId
-  }
-
-  if (visitId) {
-    filter.id = visitId
-  }
-
-
   return await prisma.visitLog.findMany({
-    where: filter,
+    where: {assignment:{careReceiverId}},
     orderBy: { createdAt: 'desc' },
     select: {
       assignmentId: true,
@@ -141,28 +128,30 @@ export const getHistoryByCareReceiver = async (viewerId: string, role: string, c
       respiratoryRate: true,
       painLevel: true,
       mood: true,
-
+      symptoms:       true,
+      woundCondition: true,
+      mobilityAssessment: true,
     }
   });
 };
 
 
-export const getVisitByAssignmentAndSchedule = async (assignmentIds: string[], fromDate: Date) => {
-  const visits = await prisma.visitLog.findMany({
-    where: {
-      assignmentId: { in: assignmentIds },
-      scheduledAt: { gte: fromDate },
-      status: { not: "CANCELLED" },
-      deletedAt: null
-    },
-    orderBy: {
-      scheduledAt: "asc",
-    },
-  });
+// export const getVisitByAssignmentAndSchedule = async (assignmentIds: string[], fromDate: Date) => {
+//   const visits = await prisma.visitLog.findMany({
+//     where: {
+//       assignmentId: { in: assignmentIds },
+//       scheduledAt: { gte: fromDate },
+//       status: { not: "CANCELLED" },
+//       deletedAt: null
+//     },
+//     orderBy: {
+//       scheduledAt: "asc",
+//     },
+//   });
 
-  return visits
+//   return visits
 
-}
+// }
 
 
 export const getVisitLogById = async (viewerId: string, role: string, visitId: string) => {
@@ -193,178 +182,6 @@ export const getVisitLogById = async (viewerId: string, role: string, visitId: s
   }
   return visit;
 };
-
-function buildGroupedResponse(
-  visits: any,
-  page: number,
-  limit: number
-) {
-
-  const grouped = new Map();
-
-  for (const visit of visits) {
-
-    const receiver =
-      visit.assignment.careReceiver;
-
-    if (!grouped.has(receiver.id)) {
-
-      grouped.set(receiver.id, {
-
-        careReceiver: {
-
-          id: receiver.id,
-
-          name: receiver.name,
-
-          city: receiver.city,
-
-        },
-
-        totalVisits: 0,
-
-        completedVisits: 0,
-
-        missedVisits: 0,
-
-        cancelledVisits: 0,
-
-        lastVisit: null,
-
-        recentVisits: [],
-
-      });
-
-    }
-
-    const group =
-      grouped.get(receiver.id);
-
-    group.totalVisits++;
-
-    if (visit.status === "COMPLETED")
-      group.completedVisits++;
-
-    if (visit.status === "MISSED")
-      group.missedVisits++;
-
-    if (visit.status === "CANCELLED")
-      group.cancelledVisits++;
-
-    if (!group.lastVisit) {
-
-      group.lastVisit = visit.visitedAt;
-
-    }
-
-    if (group.recentVisits.length < 3) {
-
-      group.recentVisits.push({
-
-        id: visit.id,
-
-        status: visit.status,
-
-        duration: visit.duration,
-
-        visitedAt: visit.visitedAt,
-
-        careAgent: {
-
-          id: visit.assignment.careAgent.id,
-
-          name:
-            visit.assignment.careAgent.user
-              .name,
-
-        },
-
-      });
-
-    }
-
-  }
-
-  const result =
-    [...grouped.values()];
-
-  const total =
-    result.length;
-
-  const start =
-    (page - 1) * limit;
-
-  return {
-
-    data: result.slice(
-      start,
-      start + limit
-    ),
-
-    pagination: {
-
-      page,
-
-      limit,
-
-      total,
-
-      totalPages: Math.ceil(
-        total / limit
-      ),
-
-    },
-
-  };
-
-}
-
-// export async function getVisitLogs(filters: any) {
-
-//   
-//   const visits = await prisma.visitLog.findMany({
-
-//     where,
-
-//     include: {
-
-//       assignment: {
-
-//         include: {
-
-//           careReceiver: true,
-
-//           careAgent: {
-
-//             include: {
-
-//               user: true,
-
-//             },
-
-//           },
-
-//         },
-
-//       },
-
-//     },
-
-//     orderBy: {
-
-//       scheduledAt: "desc",
-
-//     },
-
-//   });
-
-//   return buildGroupedResponse(
-//     visits,
-//     filters.page,
-//     filters.limit
-//   );
-
-// }
 
 
 export const getVisitLogs = async (filters: any) => {

@@ -278,3 +278,110 @@ export const deleteClient = async (clientId: string) => {
     return deleted;
   });
 };
+export const getVisitLogsByReceiver = async (careReceiverId: string) => {
+  const logs = await prisma.visitLog.findMany({
+    where: {
+      assignment: { careReceiverId },
+      deletedAt:  null,
+      status:     { in: ["COMPLETED", "MISSED"] }, // only logs with actual data
+    },
+    orderBy: { scheduledAt: "desc" },
+    take: 20, // last 20 visits
+    select: {
+      id:          true,
+      scheduledAt: true,
+      checkInAt:   true,
+      checkOutAt:  true,
+      status:      true,
+
+      // Vitals
+      bloodPressureSystolic:  true,
+      bloodPressureDiastolic: true,
+      pulseRate:              true,
+      temperature:            true,
+      oxygenSaturation:       true,
+      weight:                 true,
+      bloodSugar:             true,
+      respiratoryRate:        true,
+
+      // Wellbeing
+      painLevel: true,
+      mood:      true,
+
+      // Clinical
+      symptoms:       true,
+      woundCondition: true,
+      mobilityAssessment: true,
+
+      // Notes
+      agentNotes: true,
+      adminNotes: true,
+
+      // Agent info
+      careAgent: {
+        select: {
+          employeeId: true,
+          user: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (!logs.length) return { logs: [], latestVitals: null };
+
+  // ── Latest vitals (most recent completed visit with data) ──
+  const withVitals = logs.find(
+    (l) =>
+      l.bloodPressureSystolic !== null ||
+      l.bloodSugar !== null ||
+      l.oxygenSaturation !== null
+  );
+
+  const latestVitals = withVitals
+    ? {
+        bloodPressureSystolic:  withVitals.bloodPressureSystolic,
+        bloodPressureDiastolic: withVitals.bloodPressureDiastolic,
+        pulseRate:              withVitals.pulseRate,
+        oxygenSaturation:       withVitals.oxygenSaturation,
+        bloodSugar:             withVitals.bloodSugar,
+        temperature:            withVitals.temperature,
+        weight:                 withVitals.weight,
+        recordedAt:             withVitals.scheduledAt,
+      }
+    : null;
+
+  return {
+    logs: logs.map((l) => ({
+      ...l,
+      careAgentName: l.careAgent?.user?.name ?? "Unknown",
+      careAgentEmployeeId: l.careAgent?.employeeId ?? "",
+    })),
+    latestVitals,
+  };
+};
+
+
+export const getClientHealthDashboard = async (userId: string) => {
+  const client  = await getClientByUserId(userId)
+
+  const careReceivers = await prisma.careReceiver.findMany({
+    where: { clientId:client.id, deletedAt: null },
+    include: {
+      assignments: { select: { visitLogs: { orderBy: { scheduledAt: "desc" }, take: 10 } } }
+    },
+  });
+  // For each receiver, fetch their recent visit logs + latest vitals
+  
+  const receiversWithLogs = await Promise.all(
+    careReceivers.map(async (receiver) => {
+      const { logs, latestVitals } = await getVisitLogsByReceiver(receiver.id);
+      return { ...receiver, visitLogs: logs, latestVitals };
+    })
+  );
+
+  return {
+    clientId:   client.id,
+    clientName: client.user.name,
+    receivers:  receiversWithLogs,
+  };
+};

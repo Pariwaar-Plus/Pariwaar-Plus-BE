@@ -26,6 +26,11 @@ router.get(
   controller.getAllClients
 );
 
+router.get("/health-dashboard", 
+  authorizeRoles("CLIENT"),
+  controller.getClientHealthDashboard
+)
+
 // GET    /clients/:clientId  — get single client profile
 router.get(
   "/:clientId",
@@ -57,5 +62,7 @@ router.get(
   authorizeRoles("CLIENT"),
   controller.getMyProfile
 );
+
+
 
 export default router;

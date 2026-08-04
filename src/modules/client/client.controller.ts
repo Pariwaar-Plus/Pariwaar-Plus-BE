@@ -55,8 +55,8 @@ export const getAllClients = async (
 
     res.status(200).json({
       success: true,
-      count:   clients.length,
-      data:    clients,
+      count: clients.length,
+      data: clients,
     });
   } catch (err) {
     next(err);
@@ -86,7 +86,7 @@ export const getClientById = async (
 
     res.status(200).json({
       success: true,
-      data:    client,
+      data: client,
     });
   } catch (err) {
     next(err);
@@ -107,7 +107,7 @@ export const getMyProfile = async (
 
     res.status(200).json({
       success: true,
-      data:    client,
+      data: client,
     });
   } catch (err) {
     next(err);
@@ -138,7 +138,7 @@ export const updateClient = async (
       res.status(400).json({
         success: false,
         message: "Validation failed",
-        errors:  bodyParsed.error.flatten().fieldErrors,
+        errors: bodyParsed.error.flatten().fieldErrors,
       });
       return;
     }
@@ -148,7 +148,7 @@ export const updateClient = async (
     res.status(200).json({
       success: true,
       message: "Client updated successfully",
-      data:    updated,
+      data: updated,
     });
   } catch (err) {
     next(err);
@@ -180,6 +180,36 @@ export const deleteClient = async (
       success: true,
       message: "Client deleted successfully",
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+export const getClientHealthDashboard = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+
+    const userId = req.user?.id  //client's user id
+    // const parsed = uuidSchema.safeParse(req.params.clientId);
+    // if (!parsed.success) {
+    //   res.status(400).json({ success: false, message: "Invalid client ID" });
+    //   return;
+    // }
+
+    if (!userId) {
+      res.status(403).json({ 
+        message: `Forbidden: Action` 
+      });
+      return
+    }
+
+    const data = await service.getClientHealthDashboard(userId);
+    res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
   }

@@ -1,8 +1,6 @@
 import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, Role, User, VisitLog } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { getVisitByAssignmentAndSchedule } from "../home_visit/home_visit.service";
 import { CreateCareAssignmentDTO, UpdateCareAssignmentDTO } from "./types/care_assignment.dto";
-import { es } from "zod/locales";
 import { NotFoundError } from "../../../lib/error/NotfoundError";
 import { getCareAgentByUserId } from "../care_agent/care_agent.service";
 
@@ -74,70 +72,70 @@ export const createCareAssignment = async (
   });
 };
 
-const getScheduleData = async (assignments: CareAssignment[]) => {
-  const now = new Date();
-  const assignmentIds = assignments.map((a) => a.id)
-  //fetch all schedules
-  const schedules = await prisma.careAssignmentSchedule.findMany({
-    where: {
-      assignmentId: { in: assignmentIds },
-      deletedAt: null,
-      startDate: { lte: now },
-      OR: [
-        { endDate: null },
-        { endDate: { gte: now } },
-      ],
-    },
-    orderBy: {
-      startDate: "desc",
-    },
-  });
+// const getScheduleData = async (assignments: CareAssignment[]) => {
+//   const now = new Date();
+//   const assignmentIds = assignments.map((a) => a.id)
+//   //fetch all schedules
+//   const schedules = await prisma.careAssignmentSchedule.findMany({
+//     where: {
+//       assignmentId: { in: assignmentIds },
+//       deletedAt: null,
+//       startDate: { lte: now },
+//       OR: [
+//         { endDate: null },
+//         { endDate: { gte: now } },
+//       ],
+//     },
+//     orderBy: {
+//       startDate: "desc",
+//     },
+//   });
 
-  const scheduleMap = new Map<string, CareAssignmentSchedule>();
+//   const scheduleMap = new Map<string, CareAssignmentSchedule>();
 
-  for (const s of schedules) {
-    if (!scheduleMap.has(s.assignmentId)) {
-      scheduleMap.set(s.assignmentId, s);
-    }
-  }
+//   for (const s of schedules) {
+//     if (!scheduleMap.has(s.assignmentId)) {
+//       scheduleMap.set(s.assignmentId, s);
+//     }
+//   }
 
-  //fetch visited dates
-  const visits = await getVisitByAssignmentAndSchedule(assignmentIds, now)
+//   //fetch visited dates
+//   const visits = await getVisitByAssignmentAndSchedule(assignmentIds, now)
 
-  const visitMap = new Map<string, VisitLog[]>();
+//   const visitMap = new Map<string, VisitLog[]>();
 
-  for (const visit of visits) {
-    const arr = visitMap.get(visit.assignmentId) ?? [];
-    arr.push(visit);
-    visitMap.set(visit.assignmentId, arr);
-  }
+//   for (const visit of visits) {
+//     const arr = visitMap.get(visit.assignmentId) ?? [];
+//     arr.push(visit);
+//     visitMap.set(visit.assignmentId, arr);
+//   }
 
-  const result = assignments.map((a) => {
-    const schedule = scheduleMap.get(a.id);
-    const assignmentVisits = visitMap.get(a.id) ?? [];
-    const existingVisits = new Set(
-      assignmentVisits.map(v => v.scheduledAt.toISOString().split("T")[0])
-    );
+//   const result = assignments.map((a) => {
+//     const schedule = scheduleMap.get(a.id);
+//     const assignmentVisits = visitMap.get(a.id) ?? [];
+//     const existingVisits = new Set(
+//       assignmentVisits.map(v => v.scheduledAt.toISOString().split("T")[0])
+//     );
 
-    const nextVisit = generateNextVisits(
-      schedule!,
-      existingVisits,
-      now,
-      1
-    );
+//     const nextVisit = generateNextVisits(
+//       schedule!,
+//       existingVisits,
+//       now,
+//       1
+//     );
 
-    return {
-      ...a,
-      schedule: {
-        frequency: schedule?.frequency,
-        nextVisit,
-      }
-    };
-  });
+//     return {
+//       ...a,
+//       schedule: {
+//         frequency: schedule?.frequency,
+//         nextVisit,
+//       }
+//     };
+//   });
 
-  return result
+//   return result
 
-}
+// }
 
 function getNextDate(date: Date, frequency: AssignmentFrequency) {
   const d = new Date(date);
