@@ -11,7 +11,7 @@ import { CareAgentStatus, Prisma, Role } from "@prisma/client";
 
 
 export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<RegisterCareAgentResult> => {
-  
+
   // Validate DOB
   const dob = new Date(data.dateOfBirth);
 
@@ -20,7 +20,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
   }
 
   // Check if user exists (including soft-deleted)
-  const existingUser  = await prisma.user.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: { email: data.email },
     include: { careAgent: true },
   });
@@ -46,7 +46,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
    */
   const MAX_RETRIES = 3;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try{
+    try {
       // Use $transaction to prevent "orphan" users if profile creation fails
       const result = await prisma.$transaction(async (tx) => {
         const employeeId = await generateEmployeeId(tx);
@@ -99,7 +99,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
           },
           create: {
             userId: user.id,
-            employeeId, 
+            employeeId,
             qualification: data.qualification,
             experience: data.experience,
             phone: data.phone,
@@ -117,7 +117,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
             licenseNo: data.licenseNo,
           },
         });
-          
+
 
         return {
           user,
@@ -128,15 +128,15 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
       // Post-Transaction: Send Email
 
       try {
-          await sendCareAgentWelcomeEmail(result.user.email, result.user.name, result.careAgent.employeeId, tempPassword);
+        await sendCareAgentWelcomeEmail(result.user.email, result.user.name, result.careAgent.employeeId, tempPassword);
       } catch (emailError) {
-          console.error("Welcome email failed to send:", emailError);
+        console.error("Welcome email failed to send:", emailError);
       }
       return {
         ...result,
         tempPassword
       }
-    }catch (e: any){
+    } catch (e: any) {
       /**
        * Retry on unique constraint collision
        */
@@ -205,7 +205,7 @@ export const getCareAgentByUserId = async (userId: string) => {
  */
 export const updateCareAgent = async (userId: string, data: any) => {
   // Destructure to ensure we only update allowed professional fields
-  const {contact, city } = data;
+  const { contact, city } = data;
 
   return prisma.careAgent.update({
     where: { userId },
@@ -226,22 +226,22 @@ export const updateCareAgentByAdmin = async (careAgentId: string, data: any) => 
   const result = await prisma.$transaction(async (tx) => {
 
     // 1. Get relation
-  const agent = await tx.careAgent.findUnique({
-    where: { id: careAgentId },
-    select: { userId: true }
-  });
-
-  if (!agent) throw new Error("CareAgent not found");
-
-  // 2. Update USER table (ONLY user fields)
-  if (name || email) {
-    await tx.user.update({
-      where: { id: agent.userId },
-      data: {
-        ...(name && { name }),
-        ...(email && { email }),
-      }
+    const agent = await tx.careAgent.findUnique({
+      where: { id: careAgentId },
+      select: { userId: true }
     });
+
+    if (!agent) throw new Error("CareAgent not found");
+
+    // 2. Update USER table (ONLY user fields)
+    if (name || email) {
+      await tx.user.update({
+        where: { id: agent.userId },
+        data: {
+          ...(name && { name }),
+          ...(email && { email }),
+        }
+      });
     }
 
     // 3. Update CARE AGENT table (ONLY agent fields)
@@ -350,40 +350,40 @@ export const getCareAgentByProfileId = async (profileId: string) => {
 
   return {
     // ── Account ──
-    id:          careAgent.id,
-    userId:      careAgent.userId,
-    employeeId:  careAgent.employeeId,
-    status:      careAgent.status,
-    joinedDate:  careAgent.joinedDate,
+    id: careAgent.id,
+    userId: careAgent.userId,
+    employeeId: careAgent.employeeId,
+    status: careAgent.status,
+    joinedDate: careAgent.joinedDate,
 
     // ── User info (flattened) ──
-    name:             careAgent.user.name,
-    email:            careAgent.user.email,
-    role:             careAgent.user.role,
+    name: careAgent.user.name,
+    email: careAgent.user.email,
+    role: careAgent.user.role,
     accountCreatedAt: careAgent.user.createdAt,
     accountUpdatedAt: careAgent.user.updatedAt,
 
     // ── Personal ──
-    gender:         careAgent.gender,
-    dateOfBirth:    careAgent.dateOfBirth,
-    phone:          careAgent.phone,
+    gender: careAgent.gender,
+    dateOfBirth: careAgent.dateOfBirth,
+    phone: careAgent.phone,
     secondaryPhone: careAgent.secondaryPhone,
 
     // ── Professional ──
-    qualification:  careAgent.qualification,
+    qualification: careAgent.qualification,
     specialization: careAgent.specialization,
-    experience:     careAgent.experience,
+    experience: careAgent.experience,
 
     // ── Documents ──
     citizenshipNo: careAgent.citizenshipNo,
-    licenseNo:     careAgent.licenseNo,
+    licenseNo: careAgent.licenseNo,
 
     // ── Location ──
-    city:      careAgent.city,
-    district:  careAgent.district,
-    ward:      careAgent.ward,
-    tole:      careAgent.tole,
-    latitude:  careAgent.latitude,
+    city: careAgent.city,
+    district: careAgent.district,
+    ward: careAgent.ward,
+    tole: careAgent.tole,
+    latitude: careAgent.latitude,
     longitude: careAgent.longitude,
 
     // ── Relations ──
@@ -397,7 +397,7 @@ export const getCareAgentByProfileId = async (profileId: string) => {
       totalAssignments,
       activeAssignments,
       hasCoordinates: careAgent.latitude !== null && careAgent.longitude !== null,
-      hasDocuments:   Boolean(careAgent.citizenshipNo) || Boolean(careAgent.licenseNo),
+      hasDocuments: Boolean(careAgent.citizenshipNo) || Boolean(careAgent.licenseNo),
     },
   };
 };
@@ -415,7 +415,7 @@ export const getMyAssignedCareReceivers = async (userId: string) => {
 
   // 2. Get all active assignments
   const assignments = await prisma.careAssignment.findMany({
-    where: { 
+    where: {
       careAgentId: agent.id,
       status: 'ACTIVE'
     },
@@ -433,7 +433,7 @@ export const getMyAssignedCareReceivers = async (userId: string) => {
           existingConditions: true
         }
       }
-    } 
+    }
   });
 
   return assignments
@@ -454,16 +454,27 @@ export const deleteCareAgent = async (careAgentId: string) => {
 
     // 2. Set all active assignments for this agent to INACTIVE
     // This prevents "orphaned" active assignments in your dashboard
-    await tx.careAssignment.updateMany({
+    const careAssignment = await tx.careAssignment.updateManyAndReturn({
       where: {
         careAgentId: careAgentId,
         status: "ACTIVE",
       },
       data: {
         status: "INACTIVE",
-        endDate: now,
+        deletedAt: now
       },
+
     });
+
+    const careAssignmentIds = careAssignment.map((ca) => ca.id)
+    await tx.careAssignmentSchedule.updateMany({
+      where: {
+        assignmentId: { in: careAssignmentIds }
+      },
+      data: {
+        endDate: now
+      }
+    })
 
     // 3. Soft delete the CareAgent profile
     const updatedAgent = await tx.careAgent.update({

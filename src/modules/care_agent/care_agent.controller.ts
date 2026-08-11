@@ -263,9 +263,10 @@ export const deleteCareAgent = async (req: AuthRequest, res: Response) => {
       message: "Care Agent and associated user account have been deactivated.",
     });
   } catch (err: any) {
-    return res.status(400).json({
+    console.log(err.message)
+    return res.status(500).json({
       success: false,
-      message: err.message || "Failed to deactivate Care Agent",
+      message: "Failed to deactivate Care Agent, try again later",
     });
   }
 };
