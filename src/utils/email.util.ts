@@ -1,44 +1,6 @@
-import nodemailer, { Transporter } from "nodemailer";
+import { Resend } from "resend";
+import "dotenv/config";
 
-/* ─────────────────────────────────────────────
-   Singleton transporter
-   Created once, reused across all email calls
-───────────────────────────────────────────── */
-
-let transporter: Transporter | null = null;
-
-function getTransporter(): Transporter {
-  if (transporter) return transporter;
-
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-  const host = process.env.EMAIL_HOST;
-  const port = process.env.EMAIL_PORT;
-
-  if (!user || !pass) {
-    throw new Error(
-      "[Mailer] EMAIL_USER and EMAIL_PASS must be set in environment variables"
-    );
-  }
-
-  // Use explicit SMTP config if provided (recommended for production)
-  // Falls back to Gmail service for development
-  if (host && port) {
-    transporter = nodemailer.createTransport({
-      host,
-      port:   parseInt(port, 10),
-      secure: parseInt(port, 10) === 465, // true for 465, false for 587
-      auth:   { user, pass },
-    });
-  } else {
-    transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth:    { user, pass },
-    });
-  }
-
-  return transporter;
-}
 
 /* ─────────────────────────────────────────────
    Shared layout wrapper
@@ -85,9 +47,9 @@ function emailLayout(content: string): string {
                   <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6;">
                     This email was sent by Remote Care. If you did not expect this email,
                     please ignore it or contact us at
-                    <a href="mailto:${process.env.EMAIL_USER}"
+                    <a href="mailto:${process.env.EMAIL_FROM}"
                       style="color:#059669;text-decoration:none;">
-                      ${process.env.EMAIL_USER}
+                      ${process.env.EMAIL_FROM}
                     </a>.
                   </p>
                   <p style="margin:8px 0 0;font-size:12px;color:#cbd5e1;">
@@ -186,12 +148,8 @@ export const sendClientWelcomeEmail = async (
     </p>
   `;
 
-  await getTransporter().sendMail({
-    from:    `"Remote Care" <${process.env.EMAIL_USER}>`,
-    to:      email,
-    subject: "Welcome to Remote Care — Your Account is Ready",
-    html:    emailLayout(content),
-  });
+  await sendMail({ to: email, subject: "Welcome to Remote Care — Your Account is Ready", content: emailLayout(content) })
+
 };
 
 /* ─────────────────────────────────────────────
@@ -236,12 +194,8 @@ export const sendCareAgentWelcomeEmail = async (
     </p>
   `;
 
-  await getTransporter().sendMail({
-    from:    `"Remote Care" <${process.env.EMAIL_USER}>`,
-    to:      email,
-    subject: `Welcome to Remote Care — Employee ID: ${employeeId}`,
-    html:    emailLayout(content),
-  });
+  await sendMail({ to: email, subject: `Welcome to Remote Care — Employee ID: ${employeeId}`, content: emailLayout(content) })
+
 };
 
 /* ─────────────────────────────────────────────
@@ -286,25 +240,46 @@ export const sendPasswordResetEmail = async (
     </p>
   `;
 
-  await getTransporter().sendMail({
-    from:    `"Remote Care" <${process.env.EMAIL_USER}>`,
-    to:      email,
-    subject: "Reset Your Remote Care Password",
-    html:    emailLayout(content),
-  });
+  await sendMail({ to: email, subject: "Reset Your Remote Care Password", content: emailLayout(content) })
+
 };
 
-/* ─────────────────────────────────────────────
-   Verify transporter connection
-   Call this on app startup to catch misconfig early
-───────────────────────────────────────────── */
+export type EmailDTO = {
+  to: string
+  subject: string
+  content: string
+}
 
-export const verifyMailerConnection = async (): Promise<void> => {
+export const sendMail = async (emailDTO: EmailDTO): Promise<void> => {
+
   try {
-    await getTransporter().verify();
-    console.log("[Mailer] ✅ SMTP connection verified");
-  } catch (err) {
-    console.error("[Mailer] ❌ SMTP connection failed:", err);
-    // Don't crash the app — email is non-critical
+
+  } catch (error) {
+
   }
-};
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { to, subject, content } = emailDTO
+
+  if (!to || !subject || !content) {
+    console.error("Error sending email:", "Missing required fields: to, subject, message");
+    return;
+  }
+
+  const from = process.env.EMAIL_FROM || "defcontact@pariwarplus.com";
+  const { data, error } = await resend.emails.send({
+    from:`PariwaarPlus <${from}>`,
+    to: [to],
+    subject,
+    html: content,
+  });
+
+  if (error) {
+    console.error("Error sending email:", error);
+    throw new Error(error.message);
+  }
+
+  console.log(`Email sent successfully! to ${to}`)
+  console.log("Email ID:", data?.id);
+}
+
