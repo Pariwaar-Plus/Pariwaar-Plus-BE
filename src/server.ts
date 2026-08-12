@@ -12,7 +12,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin:["http://localhost:3000","https://pariwar-plus.netlify.app"] , // Your Next.js URL
+  origin:["http://localhost:3000","https://pariwar-plus.netlify.app",process.env.CLIENT_APP_URL!] , // Your Next.js URL
   credentials: true
 }));
 app.use(express.json());
