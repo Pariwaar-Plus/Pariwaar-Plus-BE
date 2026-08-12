@@ -224,12 +224,13 @@ export const deleteCareReceiver = async (req: AuthRequest, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      message: "Care Receiver has been deactivated.",
+      message: "Care Receiver has been deleted.",
     });
   } catch (err: any) {
-    return res.status(400).json({
+    console.log(err.message)
+    return res.status(500).json({
       success: false,
-      message: err.message || "Failed to deactivate Care Receiver",
+      message: "Failed to delete care receiver, try again later",
     });
   }
 };

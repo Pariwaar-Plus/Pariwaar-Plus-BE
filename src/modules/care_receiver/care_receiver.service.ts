@@ -195,20 +195,31 @@ export const deleteCareReceiver = async (careReceiverId: string) => {
 
   if (!existing) throw new Error("Care receiver not found");
 
+
   return await prisma.$transaction(async (tx) => {
     const now = new Date();
 
     // 1. Deactivate any active assignments
-    await tx.careAssignment.updateMany({
+    const careAssignment = await tx.careAssignment.updateManyAndReturn({
       where: {
         careReceiverId: careReceiverId,
         status: "ACTIVE",
       },
       data: {
         status: AssignmentStatus.INACTIVE,
-        endDate: now,
+        deletedAt: now
       },
     });
+
+    const careAssignmentIds = careAssignment.map((ca) => ca.id)
+    await tx.careAssignmentSchedule.updateMany({
+      where: {
+        assignmentId: { in: careAssignmentIds }
+      },
+      data: {
+        endDate: now
+      }
+    })
 
     // 2. Soft delete the care receiver profile
     const updated = await tx.careReceiver.update({
