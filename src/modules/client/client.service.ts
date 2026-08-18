@@ -2,7 +2,7 @@ import crypto from "crypto";
 import prisma from "../../config/prisma";
 import { AppError } from "../../../lib/error/error";
 import { hashPassword } from "../../utils/hash";
-import { sendClientWelcomeEmail  } from "../../utils/email.util";
+import { sendClientWelcomeEmail } from "../../utils/email.util";
 
 import { CreateClientDTO, UpdateClientDTO } from "./schemas/client.schema";
 import { Role } from "@prisma/client";
@@ -12,22 +12,23 @@ CREATE
 ───────────────────────────────────────────── */
 
 export const registerClient = async (
-    adminId: string,
-    data: CreateClientDTO
+  adminId: string,
+  data: CreateClientDTO
 ) => {
   // 1. Verify admin
-    const admin = await prisma.user.findUnique({ where: { id: adminId } });
-    if (!admin || admin.role !== Role.ADMIN) {
-        throw new AppError("Unauthorized: Only admins can register clients", 403);
-    }
+  const admin = await prisma.user.findUnique({ where: { id: adminId } });
+  if (!admin || admin.role !== Role.ADMIN) {
+    throw new AppError("Unauthorized: Only admins can register clients", 403);
+  }
 
-    // 2. Check email uniqueness
-    const existing = await prisma.user.findUnique({
-        where: { email: data.email },
-    });
-    if (existing) {
-        throw new AppError("A user with this email already exists", 409);
-    }
+  // 2. Check email uniqueness
+  const existing = await prisma.user.findUnique({
+    where: { email: data.email, deletedAt: null },
+
+  });
+  if (existing) {
+    throw new AppError("A client with this email already exists", 409);
+  }
 
   // 3. Hash password
   const tempPassword = data.password || crypto.randomBytes(8).toString("hex");
@@ -36,26 +37,51 @@ export const registerClient = async (
   // 4. Transaction: create User + Client profile
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name:     data.name,
-          email:    data.email,
+
+      const user = await tx.user.upsert({
+        where: {
+          email: data.email
+        },
+        update: {
+          name: data.name,
           password: hashedPassword,
-          role:     Role.CLIENT,
+          role: Role.CLIENT,
+          deletedAt: null,
+        },
+        create: {
+          name: data.name,
+          email: data.email,
+          password: hashedPassword,
+          role: Role.CLIENT,
         },
       });
 
-      const client = await tx.client.create({
-        data: {
-          userId:        user.id,
-          phone:         data.phone,
-          countryCode:   data.countryCode,
+      const client = await tx.client.upsert({
+        where: {
+          userId: user.id
+        },
+        update: {
+          phone: data.phone,
+          countryCode: data.countryCode,
           secondaryPhone: data.secondaryPhone || null,
-          country:       data.country,
-          timezone:      data.timezone,
-          address:       data.address || null,
-          city:          data.city || null,
-          billingType:   data.billingType   ?? "MONTHLY",
+          country: data.country,
+          timezone: data.timezone,
+          address: data.address || null,
+          city: data.city || null,
+          billingType: data.billingType ?? "MONTHLY",
+          paymentStatus: data.paymentStatus ?? "PENDING",
+          deletedAt: null
+        },
+        create: {
+          userId: user.id,
+          phone: data.phone,
+          countryCode: data.countryCode,
+          secondaryPhone: data.secondaryPhone || null,
+          country: data.country,
+          timezone: data.timezone,
+          address: data.address || null,
+          city: data.city || null,
+          billingType: data.billingType ?? "MONTHLY",
           paymentStatus: data.paymentStatus ?? "PENDING",
         },
         include: {
@@ -65,12 +91,17 @@ export const registerClient = async (
         },
       });
 
+      await tx.careReceiver.updateMany({
+        where: { clientId: client.id },
+        data: { deletedAt: null },
+      });
+
       return { user, client };
     });
 
     // 5. Send welcome email (non-blocking)
     try {
-      await sendClientWelcomeEmail (
+      await sendClientWelcomeEmail(
         result.user.email,
         result.user.name,
         tempPassword
@@ -80,12 +111,12 @@ export const registerClient = async (
     }
 
     return {
-      client:       result.client,
+      client: result.client,
       tempPassword, // return to admin as backup
     };
   } catch (err: any) {
     if (err.code === "P2002") {
-      throw new AppError("A user with this email or phone already exists", 409);
+      throw new AppError("A user with this email already exists trt", 409);
     }
     throw err;
   }
@@ -97,19 +128,19 @@ export const registerClient = async (
 
 export const getAllClients = async () => {
   return await prisma.client.findMany({
-    where:   { deletedAt: null },
+    where: { deletedAt: null },
     include: {
       user: {
         select: { id: true, name: true, email: true, role: true },
       },
       careReceivers: {
-        where:   { deletedAt: null },
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         select: {
-          id:     true,
-          name:   true,
+          id: true,
+          name: true,
           gender: true,
-          city:   true,
+          city: true,
           mobilityStatus: true,
         },
       },
@@ -128,16 +159,16 @@ export const getClientById = async (clientId: string) => {
     include: {
       user: {
         select: {
-          id:        true,
-          name:      true,
-          email:     true,
-          role:      true,
+          id: true,
+          name: true,
+          email: true,
+          role: true,
           createdAt: true,
           updatedAt: true,
         },
       },
       careReceivers: {
-        where:   { deletedAt: null },
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -147,29 +178,29 @@ export const getClientById = async (clientId: string) => {
 
   // Flatten user fields for convenience
   return {
-    id:            client.id,
-    userId:        client.userId,
+    id: client.id,
+    userId: client.userId,
 
     // User (flattened)
-    name:             client.user.name,
-    email:            client.user.email,
-    role:             client.user.role,
+    name: client.user.name,
+    email: client.user.email,
+    role: client.user.role,
     accountCreatedAt: client.user.createdAt,
     accountUpdatedAt: client.user.updatedAt,
 
     // Contact
-    phone:          client.phone,
-    countryCode:    client.countryCode,
+    phone: client.phone,
+    countryCode: client.countryCode,
     secondaryPhone: client.secondaryPhone,
 
     // Location
-    country:  client.country,
+    country: client.country,
     timezone: client.timezone,
-    address:  client.address,
-    city:     client.city,
+    address: client.address,
+    city: client.city,
 
     // Billing
-    billingType:   client.billingType,
+    billingType: client.billingType,
     paymentStatus: client.paymentStatus,
 
     // Relations
@@ -177,9 +208,9 @@ export const getClientById = async (clientId: string) => {
 
     // Computed
     stats: {
-      totalCareReceivers:  client.careReceivers.length,
-      createdAt:           client.createdAt,
-      updatedAt:           client.updatedAt,
+      totalCareReceivers: client.careReceivers.length,
+      createdAt: client.createdAt,
+      updatedAt: client.updatedAt,
     },
   };
 };
@@ -196,7 +227,7 @@ export const getClientByUserId = async (userId: string) => {
         select: { id: true, name: true, email: true },
       },
       careReceivers: {
-        where:   { deletedAt: null },
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -225,7 +256,7 @@ export const updateClient = async (
   if (data.name) {
     await prisma.user.update({
       where: { id: existing.userId },
-      data:  { name: data.name },
+      data: { name: data.name },
     });
   }
 
@@ -233,7 +264,7 @@ export const updateClient = async (
 
   return await prisma.client.update({
     where: { id: clientId },
-    data:  clientData,
+    data: clientData,
     include: {
       user: {
         select: { id: true, name: true, email: true },
@@ -260,19 +291,19 @@ export const deleteClient = async (clientId: string) => {
     // 1. Soft delete Client profile
     const deleted = await tx.client.update({
       where: { id: clientId },
-      data:  { deletedAt: now },
+      data: { deletedAt: now },
     });
 
     // 2. Soft delete User account (prevents login)
     await tx.user.update({
       where: { id: client.userId },
-      data:  { deletedAt: now },
+      data: { deletedAt: now },
     });
 
     // 3. Soft delete all CareReceivers
     await tx.careReceiver.updateMany({
       where: { clientId, deletedAt: null },
-      data:  { deletedAt: now },
+      data: { deletedAt: now },
     });
 
     return deleted;
@@ -282,34 +313,34 @@ export const getVisitLogsByReceiver = async (careReceiverId: string) => {
   const logs = await prisma.visitLog.findMany({
     where: {
       assignment: { careReceiverId },
-      deletedAt:  null,
-      status:     { in: ["COMPLETED", "MISSED"] }, // only logs with actual data
+      deletedAt: null,
+      status: { in: ["COMPLETED", "MISSED"] }, // only logs with actual data
     },
     orderBy: { scheduledAt: "desc" },
     take: 20, // last 20 visits
     select: {
-      id:          true,
+      id: true,
       scheduledAt: true,
-      checkInAt:   true,
-      checkOutAt:  true,
-      status:      true,
+      checkInAt: true,
+      checkOutAt: true,
+      status: true,
 
       // Vitals
-      bloodPressureSystolic:  true,
+      bloodPressureSystolic: true,
       bloodPressureDiastolic: true,
-      pulseRate:              true,
-      temperature:            true,
-      oxygenSaturation:       true,
-      weight:                 true,
-      bloodSugar:             true,
-      respiratoryRate:        true,
+      pulseRate: true,
+      temperature: true,
+      oxygenSaturation: true,
+      weight: true,
+      bloodSugar: true,
+      respiratoryRate: true,
 
       // Wellbeing
       painLevel: true,
-      mood:      true,
+      mood: true,
 
       // Clinical
-      symptoms:       true,
+      symptoms: true,
       woundCondition: true,
       mobilityAssessment: true,
 
@@ -339,15 +370,15 @@ export const getVisitLogsByReceiver = async (careReceiverId: string) => {
 
   const latestVitals = withVitals
     ? {
-        bloodPressureSystolic:  withVitals.bloodPressureSystolic,
-        bloodPressureDiastolic: withVitals.bloodPressureDiastolic,
-        pulseRate:              withVitals.pulseRate,
-        oxygenSaturation:       withVitals.oxygenSaturation,
-        bloodSugar:             withVitals.bloodSugar,
-        temperature:            withVitals.temperature,
-        weight:                 withVitals.weight,
-        recordedAt:             withVitals.scheduledAt,
-      }
+      bloodPressureSystolic: withVitals.bloodPressureSystolic,
+      bloodPressureDiastolic: withVitals.bloodPressureDiastolic,
+      pulseRate: withVitals.pulseRate,
+      oxygenSaturation: withVitals.oxygenSaturation,
+      bloodSugar: withVitals.bloodSugar,
+      temperature: withVitals.temperature,
+      weight: withVitals.weight,
+      recordedAt: withVitals.scheduledAt,
+    }
     : null;
 
   return {
@@ -362,16 +393,16 @@ export const getVisitLogsByReceiver = async (careReceiverId: string) => {
 
 
 export const getClientHealthDashboard = async (userId: string) => {
-  const client  = await getClientByUserId(userId)
+  const client = await getClientByUserId(userId)
 
   const careReceivers = await prisma.careReceiver.findMany({
-    where: { clientId:client.id, deletedAt: null },
+    where: { clientId: client.id, deletedAt: null },
     include: {
       assignments: { select: { visitLogs: { orderBy: { scheduledAt: "desc" }, take: 10 } } }
     },
   });
   // For each receiver, fetch their recent visit logs + latest vitals
-  
+
   const receiversWithLogs = await Promise.all(
     careReceivers.map(async (receiver) => {
       const { logs, latestVitals } = await getVisitLogsByReceiver(receiver.id);
@@ -380,8 +411,8 @@ export const getClientHealthDashboard = async (userId: string) => {
   );
 
   return {
-    clientId:   client.id,
+    clientId: client.id,
     clientName: client.user.name,
-    receivers:  receiversWithLogs,
+    receivers: receiversWithLogs,
   };
 };

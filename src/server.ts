@@ -18,13 +18,14 @@ app.use(cors({
 app.use(express.json());
 
 app.use(cookieParser());
-app.use(globalErrorHandler);
+
 
 app.get("/", (req, res) => {
   res.send("Clinic System API is running...");
 });
 
 app.use("/api", rootRouter);
+app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
 

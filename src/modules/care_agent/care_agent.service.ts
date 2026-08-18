@@ -21,7 +21,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
 
   // Check if user exists (including soft-deleted)
   const existingUser = await prisma.user.findUnique({
-    where: { email: data.email },
+    where: { email: data.email, deletedAt: null },
     include: { careAgent: true },
   });
 
