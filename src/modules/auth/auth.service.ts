@@ -137,14 +137,15 @@ export const getMe = async (userId: string) => {
     include: {
       careAgent: true, // Prisma will return null if the user isn't a CareAgent
       client: true,    // Prisma will return null if the user isn't a Client
+      _count: { select: { notifications: { where: { hasRead: false } } } }
     },
   });
 
   if (!user) throw new Error("User not found");
 
   // Remove the password before sending to frontend
-  const { password: _, ...userWithoutPassword } = user;
-  return userWithoutPassword;
+  const { password: _, _count: { notifications: notificationsCount }, ...userWithoutPassword } = user;
+  return { ...userWithoutPassword, notificationsCount };
 };
 
 

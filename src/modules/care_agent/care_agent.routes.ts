@@ -23,7 +23,6 @@ router.post(
   registerCareAgent
 );
 
-
 // ADMIN: Fetch all agent data for the dashboard
 router.get(
   "/",
