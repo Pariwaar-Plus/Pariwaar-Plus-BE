@@ -3,11 +3,14 @@ import { ForbiddenError } from "../../../lib/error/ForbiddenError";
 import { NotFoundError } from "../../../lib/error/NotfoundError";
 import prisma from "../../config/prisma";
 import { CreateVisitLogDTO, UpdateVisitLogDTO } from "./types/visit_log.dto";
+import { createNotification } from "../notifications/notification.service";
+import { format } from "date-fns";
 
 export const createVisitLog = async (userId: string, data: CreateVisitLogDTO) => {
   // 1. Get the Care Agent's profile ID from their User ID
   const agent = await prisma.careAgent.findUnique({
-    where: { userId }
+    where: { userId },
+    include: { user: { select: { name: true } } }
   });
 
   if (!agent) throw new Error("Care Agent profile not found");
@@ -16,12 +19,17 @@ export const createVisitLog = async (userId: string, data: CreateVisitLogDTO) =>
   const assignment = await prisma.careAssignment.findUnique({
     where: {
       id: data.assignmentId
-    }
+    },
+    select: { careReceiver: { select: { client: { select: { user: { select: { id: true } }, } }, name: true } }, status: true }
   });
 
   if (!assignment || assignment.status !== 'ACTIVE') {
     throw new Error("You are not authorized to log visits for this parent.");
   }
+
+  //create notification for client
+  const notificationData = `${agent.user.name} visited ${assignment.careReceiver.name} on ${format(data.scheduledAt, 'do \'of\' MMMM yyyy')} `
+  await createNotification(assignment.careReceiver.client.user.id, { content: notificationData, type: "VISIT_LOG" })
 
   // 3. Create the Visit Log
   return await prisma.visitLog.create({
@@ -109,7 +117,7 @@ export const getHistoryByCareReceiver = async (viewerId: string, role: string, c
   const assignmentId = await visitHistoryAuthorization(viewerId, role, careReceiverId)
 
   return await prisma.visitLog.findMany({
-    where: {assignment:{careReceiverId}},
+    where: { assignment: { careReceiverId } },
     orderBy: { createdAt: 'desc' },
     select: {
       assignmentId: true,
@@ -128,7 +136,7 @@ export const getHistoryByCareReceiver = async (viewerId: string, role: string, c
       respiratoryRate: true,
       painLevel: true,
       mood: true,
-      symptoms:       true,
+      symptoms: true,
       woundCondition: true,
       mobilityAssessment: true,
     }

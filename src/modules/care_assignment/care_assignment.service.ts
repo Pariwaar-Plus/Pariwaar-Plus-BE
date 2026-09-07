@@ -232,6 +232,7 @@ export const getAssignmentByCareReceiver = async (
       const careAgent = await getCareAgentByUserId(user.id)
       if (careAgent) {
         filter.careAgentId = careAgent.id
+        filter.status = "ACTIVE"
       }
     }
 
@@ -240,7 +241,6 @@ export const getAssignmentByCareReceiver = async (
   const assignments = await prisma.careAssignment.findMany({
     where: {
       ...filter,
-      status: "ACTIVE",
       deletedAt: null
     },
 
