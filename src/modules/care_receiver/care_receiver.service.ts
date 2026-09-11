@@ -83,6 +83,7 @@ export const getCareReceiverById = async (careReceiverId: string) => {
       client: {
         select: {
           id: true,
+          user: { select: { name: true, email: true } },
           phone: true,
           countryCode: true,
           country: true,
@@ -91,7 +92,7 @@ export const getCareReceiverById = async (careReceiverId: string) => {
       assignments: {
         where: { deletedAt: null, status: "ACTIVE" },
         orderBy: { createdAt: "desc" },
-        include: {
+        select: {
           careAgent: {
             select: {
               id: true,

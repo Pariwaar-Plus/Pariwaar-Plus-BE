@@ -207,10 +207,11 @@ export const getClientById = async (clientId: string) => {
     careReceivers: client.careReceivers,
 
     // Computed
+    createdAt: client.createdAt,
+    updatedAt: client.updatedAt,
     stats: {
       totalCareReceivers: client.careReceivers.length,
-      createdAt: client.createdAt,
-      updatedAt: client.updatedAt,
+
     },
   };
 };
