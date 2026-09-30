@@ -8,6 +8,7 @@ import { hashPassword, comparePassword } from "../../utils/hash";
 import { sendPasswordResetEmail } from "../../utils/email.util";
 import crypto from "crypto";
 import { AppError } from "../../../lib/error/error";
+import { NotFoundError } from "../../../lib/error/NotfoundError";
 
 
 /**
@@ -148,6 +149,12 @@ export const getMe = async (userId: string) => {
   return { ...userWithoutPassword, notificationsCount };
 };
 
+
+export const findUserById = async (userId: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } })
+  if (!user) throw new NotFoundError("User not found");
+  return user
+}
 
 
 export const forgotPassword = async (email: string) => {

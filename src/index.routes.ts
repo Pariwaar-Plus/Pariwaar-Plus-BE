@@ -6,6 +6,7 @@ import clientRoutes from "./modules/client/client.routes";
 import visitLogRoutes from "./modules/home_visit/home_visit.routes";
 import careAssignmentRoutes from "./modules/care_assignment/care_assignment.routes"
 import notificationRoutes from "./modules/notifications/notification.route"
+import videoCallRoutes from "./modules/video-call/video-call.route"
 
 const rootRouter = Router();
 
@@ -16,6 +17,7 @@ rootRouter.use("/care-assignment", careAssignmentRoutes);
 rootRouter.use("/client", clientRoutes);
 rootRouter.use("/visit-logs", visitLogRoutes);
 rootRouter.use("/notifications", notificationRoutes);
+rootRouter.use("/video-call-test", videoCallRoutes);
 
 
 export default rootRouter;
