@@ -1,7 +1,7 @@
+import crypto from 'node:crypto';
 import { NotFoundError } from "../../../lib/error/NotfoundError";
 import prisma from "../../config/prisma";
-import { createMiroTalkJoinUrl } from "../../services/mirotalk.service";
-import crypto from 'node:crypto';
+import { createJoinConfig } from "../../services/video-media.service";
 import { findUserById } from "../auth/auth.service";
 
 export const createVideoCallService = async () => {
@@ -38,7 +38,7 @@ export const joinVideoCallService = async (roomId: string, userId: string) => {
 
   const user = await findUserById(userId)
 
-  const joinUrl = await createMiroTalkJoinUrl({
+  const data = await createJoinConfig({
     name: user.name,
     room: videoCallDB.roomId,
   });
@@ -53,9 +53,7 @@ export const joinVideoCallService = async (roomId: string, userId: string) => {
     },
   });
 
-  return {
-    joinUrl,
-  };
+  return data
 }
 
 
