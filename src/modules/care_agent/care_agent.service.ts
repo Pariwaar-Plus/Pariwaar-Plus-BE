@@ -2,16 +2,17 @@ import prisma from "../../config/prisma";
 import { hashPassword } from "../../utils/hash";
 import crypto from "crypto";
 import { sendCareAgentWelcomeEmail } from "../../utils/email.util";
-import { CreateCareAgentDTO, RegisterCareAgentResult } from "./types/care_agent.dto";
+import {
+  CreateCareAgentDTO,
+  RegisterCareAgentResult,
+} from "./types/care_agent.dto";
 import { generateEmployeeId } from "../../utils/employee_id";
 import { AppError } from "../../../lib/error/error";
 import { CareAgentStatus, Prisma, Role } from "@prisma/client";
 
-
-
-
-export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<RegisterCareAgentResult> => {
-
+export const registerCareAgent = async (
+  data: CreateCareAgentDTO,
+): Promise<RegisterCareAgentResult> => {
   // Validate DOB
   const dob = new Date(data.dateOfBirth);
 
@@ -28,13 +29,35 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
   if (existingUser && !existingUser.deletedAt) {
     if (existingUser.role === Role.CARE_AGENT) {
       throw new Error(
-        "This email is already registered to an active Care Agent."
+        "This email is already registered to an active Care Agent.",
       );
     }
 
-    throw new Error(
-      `This email is already in use by a ${existingUser.role}.`
-    );
+    throw new Error(`This email is already in use by a ${existingUser.role}.`);
+  }
+
+  // Check if citizenship already exists
+  const existingCitizenship = await prisma.careAgent.findFirst({
+    where: {
+      citizenshipNo: data.citizenshipNo,
+      deletedAt: null,
+    },
+  });
+
+  if (existingCitizenship) {
+    throw new Error("Citizenship number already exists");
+  }
+
+  // Check if phone already exists
+  const existingPhone = await prisma.careAgent.findFirst({
+    where: {
+      phone: data.phone,
+      deletedAt: null,
+    },
+  });
+
+  if (existingPhone) {
+    throw new Error("Phone number already exists");
   }
 
   // Set up credentials
@@ -55,7 +78,7 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
          */
         const user = await tx.user.upsert({
           where: {
-            email: data.email
+            email: data.email,
           },
           update: {
             name: data.name,
@@ -71,11 +94,11 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
           },
         });
         /**
-        * Create or Restore CareAgent
-        */
+         * Create or Restore CareAgent
+         */
         const careAgent = await tx.careAgent.upsert({
           where: {
-            userId: user.id
+            userId: user.id,
           },
           update: {
             employeeId,
@@ -118,24 +141,28 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
           },
         });
 
-
         return {
           user,
-          careAgent
+          careAgent,
         };
       });
 
       // Post-Transaction: Send Email
 
       try {
-        await sendCareAgentWelcomeEmail(result.user.email, result.user.name, result.careAgent.employeeId, tempPassword);
+        await sendCareAgentWelcomeEmail(
+          result.user.email,
+          result.user.name,
+          result.careAgent.employeeId,
+          tempPassword,
+        );
       } catch (emailError) {
         console.error("Welcome email failed to send:", emailError);
       }
       return {
         ...result,
-        tempPassword
-      }
+        tempPassword,
+      };
     } catch (e: any) {
       /**
        * Retry on unique constraint collision
@@ -149,16 +176,12 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
           continue;
         }
 
-        throw new Error(
-          "Failed to generate unique employee ID. Please retry."
-        );
+        throw new Error("Failed to generate unique employee ID. Please retry.");
       }
 
       console.error("Register Care Agent Error:", e);
 
-      throw new Error(
-        e.message || "Failed to register care agent"
-      );
+      throw new Error(e.message || "Failed to register care agent");
     }
   }
 
@@ -166,17 +189,15 @@ export const registerCareAgent = async (data: CreateCareAgentDTO): Promise<Regis
   throw new Error("Failed to register care agent after multiple attempts");
 };
 
-
 // Get all care agents for Admin dashboards
 export const getActiveCareAgents = async () => {
   return await prisma.careAgent.findMany({
     where: {
-      deletedAt: null
+      deletedAt: null,
     },
-    include: { user: true }
+    include: { user: true },
   });
 };
-
 
 /**
  * Get single care agent profile
@@ -217,21 +238,49 @@ export const updateCareAgent = async (userId: string, data: any) => {
 };
 
 // Update Care Agent Details By admin
-export const updateCareAgentByAdmin = async (careAgentId: string, data: any) => {
-  const {
-    name,
-    email,
-    ...careAgentData
-  } = data;
+export const updateCareAgentByAdmin = async (
+  careAgentId: string,
+  data: any,
+) => {
+  const { name, email, ...careAgentData } = data;
   const result = await prisma.$transaction(async (tx) => {
-
     // 1. Get relation
     const agent = await tx.careAgent.findUnique({
       where: { id: careAgentId },
-      select: { userId: true }
+      select: { userId: true },
     });
 
     if (!agent) throw new Error("CareAgent not found");
+
+    // Check citizenship number only if provided
+    if (careAgentData.citizenshipNo) {
+      const existingCitizenship = await tx.careAgent.findFirst({
+        where: {
+          citizenshipNo: careAgentData.citizenshipNo,
+          deletedAt: null,
+          id: { not: careAgentId },
+        },
+      });
+
+      if (existingCitizenship) {
+        throw new Error("Citizenship number already exists");
+      }
+    }
+
+    // Check phone number only if provided
+    if (careAgentData.phone) {
+      const existingPhone = await tx.careAgent.findFirst({
+        where: {
+          phone: careAgentData.phone,
+          deletedAt: null,
+          id: { not: careAgentId },
+        },
+      });
+
+      if (existingPhone) {
+        throw new Error("Phone number already exists");
+      }
+    }
 
     // 2. Update USER table (ONLY user fields)
     if (name || email) {
@@ -240,7 +289,7 @@ export const updateCareAgentByAdmin = async (careAgentId: string, data: any) => 
         data: {
           ...(name && { name }),
           ...(email && { email }),
-        }
+        },
       });
     }
 
@@ -267,7 +316,7 @@ export const updateCareAgentByAdmin = async (careAgentId: string, data: any) => 
 
         citizenshipNo: careAgentData.citizenshipNo || null,
         licenseNo: careAgentData.licenseNo || null,
-      }
+      },
     });
 
     return updatedAgent;
@@ -340,12 +389,12 @@ export const getCareAgentByProfileId = async (profileId: string) => {
 
   const joinedDaysAgo = Math.floor(
     (Date.now() - new Date(careAgent.joinedDate).getTime()) /
-    (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24),
   );
 
   const age = Math.floor(
     (Date.now() - new Date(careAgent.dateOfBirth).getTime()) /
-    (1000 * 60 * 60 * 24 * 365.25)
+      (1000 * 60 * 60 * 24 * 365.25),
   );
 
   return {
@@ -396,8 +445,10 @@ export const getCareAgentByProfileId = async (profileId: string) => {
       joinedDaysAgo,
       totalAssignments,
       activeAssignments,
-      hasCoordinates: careAgent.latitude !== null && careAgent.longitude !== null,
-      hasDocuments: Boolean(careAgent.citizenshipNo) || Boolean(careAgent.licenseNo),
+      hasCoordinates:
+        careAgent.latitude !== null && careAgent.longitude !== null,
+      hasDocuments:
+        Boolean(careAgent.citizenshipNo) || Boolean(careAgent.licenseNo),
     },
   };
 };
@@ -408,7 +459,7 @@ export const getCareAgentByProfileId = async (profileId: string) => {
 export const getMyAssignedCareReceivers = async (userId: string) => {
   // 1. Find the agent's profile ID using their logged-in User ID
   const agent = await prisma.careAgent.findUnique({
-    where: { userId }
+    where: { userId },
   });
 
   if (!agent) throw new Error("Care Agent profile not found");
@@ -417,7 +468,7 @@ export const getMyAssignedCareReceivers = async (userId: string) => {
   const assignments = await prisma.careAssignment.findMany({
     where: {
       careAgentId: agent.id,
-      status: 'ACTIVE'
+      status: "ACTIVE",
     },
     include: {
       careReceiver: {
@@ -430,13 +481,13 @@ export const getMyAssignedCareReceivers = async (userId: string) => {
           ward: true,
           tole: true,
           contactNumber: true,
-          existingConditions: true
-        }
-      }
-    }
+          existingConditions: true,
+        },
+      },
+    },
   });
 
-  return assignments
+  return assignments;
 };
 
 // Soft Delete care agent profile
@@ -444,7 +495,7 @@ export const deleteCareAgent = async (careAgentId: string) => {
   // 1. Verify agent existence and get userId
   const agent = await prisma.careAgent.findUnique({
     where: { id: careAgentId },
-    select: { userId: true }
+    select: { userId: true },
   });
 
   if (!agent) throw new Error("Care Agent not found");
@@ -461,25 +512,24 @@ export const deleteCareAgent = async (careAgentId: string) => {
       },
       data: {
         status: "INACTIVE",
-        deletedAt: now
+        deletedAt: now,
       },
-
     });
 
-    const careAssignmentIds = careAssignment.map((ca) => ca.id)
+    const careAssignmentIds = careAssignment.map((ca) => ca.id);
     await tx.careAssignmentSchedule.updateMany({
       where: {
-        assignmentId: { in: careAssignmentIds }
+        assignmentId: { in: careAssignmentIds },
       },
       data: {
-        endDate: now
-      }
-    })
+        endDate: now,
+      },
+    });
 
     // 3. Soft delete the CareAgent profile
     const updatedAgent = await tx.careAgent.update({
       where: { id: careAgentId },
-      data: { deletedAt: now },
+      data: { deletedAt: now, status: "INACTIVE" },
     });
 
     // 4. Soft delete the User (prevents future logins)
