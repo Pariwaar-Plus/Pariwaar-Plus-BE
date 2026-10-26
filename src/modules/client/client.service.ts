@@ -13,7 +13,7 @@ CREATE
 
 export const registerClient = async (
   adminId: string,
-  data: CreateClientDTO
+  data: CreateClientDTO,
 ) => {
   // 1. Verify admin
   const admin = await prisma.user.findUnique({ where: { id: adminId } });
@@ -24,7 +24,6 @@ export const registerClient = async (
   // 2. Check email uniqueness
   const existing = await prisma.user.findUnique({
     where: { email: data.email, deletedAt: null },
-
   });
   if (existing) {
     throw new AppError("A client with this email already exists", 409);
@@ -37,10 +36,9 @@ export const registerClient = async (
   // 4. Transaction: create User + Client profile
   try {
     const result = await prisma.$transaction(async (tx) => {
-
       const user = await tx.user.upsert({
         where: {
-          email: data.email
+          email: data.email,
         },
         update: {
           name: data.name,
@@ -58,7 +56,7 @@ export const registerClient = async (
 
       const client = await tx.client.upsert({
         where: {
-          userId: user.id
+          userId: user.id,
         },
         update: {
           phone: data.phone,
@@ -70,7 +68,7 @@ export const registerClient = async (
           city: data.city || null,
           billingType: data.billingType ?? "MONTHLY",
           paymentStatus: data.paymentStatus ?? "PENDING",
-          deletedAt: null
+          deletedAt: null,
         },
         create: {
           userId: user.id,
@@ -104,7 +102,7 @@ export const registerClient = async (
       await sendClientWelcomeEmail(
         result.user.email,
         result.user.name,
-        tempPassword
+        tempPassword,
       );
     } catch (emailError) {
       console.error("[registerClient] Welcome email failed:", emailError);
@@ -116,7 +114,7 @@ export const registerClient = async (
     };
   } catch (err: any) {
     if (err.code === "P2002") {
-      throw new AppError("A user with this email already exists trt", 409);
+      throw new AppError("A user with this email already exists", 409);
     }
     throw err;
   }
@@ -211,7 +209,6 @@ export const getClientById = async (clientId: string) => {
     updatedAt: client.updatedAt,
     stats: {
       totalCareReceivers: client.careReceivers.length,
-
     },
   };
 };
@@ -242,16 +239,28 @@ export const getClientByUserId = async (userId: string) => {
   UPDATE
 ───────────────────────────────────────────── */
 
-export const updateClient = async (
-  clientId: string,
-  data: UpdateClientDTO
-) => {
+export const updateClient = async (clientId: string, data: UpdateClientDTO) => {
   const existing = await prisma.client.findUnique({
     where: { id: clientId, deletedAt: null },
     select: { userId: true },
   });
 
   if (!existing) throw new AppError("Client not found", 404);
+
+  // Check if phone number already exists
+  if (data.phone) {
+    const existingPhone = await prisma.client.findFirst({
+      where: {
+        phone: data.phone,
+        deletedAt: null,
+        id: { not: clientId },
+      },
+    });
+
+    if (existingPhone) {
+      throw new AppError("Phone number already exists", 409);
+    }
+  }
 
   // If name is being updated, update the User record too
   if (data.name) {
@@ -310,6 +319,7 @@ export const deleteClient = async (clientId: string) => {
     return deleted;
   });
 };
+
 export const getVisitLogsByReceiver = async (careReceiverId: string) => {
   const logs = await prisma.visitLog.findMany({
     where: {
@@ -366,20 +376,20 @@ export const getVisitLogsByReceiver = async (careReceiverId: string) => {
     (l) =>
       l.bloodPressureSystolic !== null ||
       l.bloodSugar !== null ||
-      l.oxygenSaturation !== null
+      l.oxygenSaturation !== null,
   );
 
   const latestVitals = withVitals
     ? {
-      bloodPressureSystolic: withVitals.bloodPressureSystolic,
-      bloodPressureDiastolic: withVitals.bloodPressureDiastolic,
-      pulseRate: withVitals.pulseRate,
-      oxygenSaturation: withVitals.oxygenSaturation,
-      bloodSugar: withVitals.bloodSugar,
-      temperature: withVitals.temperature,
-      weight: withVitals.weight,
-      recordedAt: withVitals.scheduledAt,
-    }
+        bloodPressureSystolic: withVitals.bloodPressureSystolic,
+        bloodPressureDiastolic: withVitals.bloodPressureDiastolic,
+        pulseRate: withVitals.pulseRate,
+        oxygenSaturation: withVitals.oxygenSaturation,
+        bloodSugar: withVitals.bloodSugar,
+        temperature: withVitals.temperature,
+        weight: withVitals.weight,
+        recordedAt: withVitals.scheduledAt,
+      }
     : null;
 
   return {
@@ -392,14 +402,15 @@ export const getVisitLogsByReceiver = async (careReceiverId: string) => {
   };
 };
 
-
 export const getClientHealthDashboard = async (userId: string) => {
-  const client = await getClientByUserId(userId)
+  const client = await getClientByUserId(userId);
 
   const careReceivers = await prisma.careReceiver.findMany({
     where: { clientId: client.id, deletedAt: null },
     include: {
-      assignments: { select: { visitLogs: { orderBy: { scheduledAt: "desc" }, take: 10 } } }
+      assignments: {
+        select: { visitLogs: { orderBy: { scheduledAt: "desc" }, take: 10 } },
+      },
     },
   });
   // For each receiver, fetch their recent visit logs + latest vitals
@@ -408,7 +419,7 @@ export const getClientHealthDashboard = async (userId: string) => {
     careReceivers.map(async (receiver) => {
       const { logs, latestVitals } = await getVisitLogsByReceiver(receiver.id);
       return { ...receiver, visitLogs: logs, latestVitals };
-    })
+    }),
   );
 
   return {
