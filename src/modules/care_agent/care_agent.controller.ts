@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import * as service from "./care_agent.service";
 import { AuthRequest } from "../../@types";
-import { CreateCareAgentSchema, UpdateCareAgentSchema } from "./types/care_agent.dto";
+import {
+  CreateCareAgentSchema,
+  UpdateCareAgentSchema,
+} from "./types/care_agent.dto";
 import { z, ZodError } from "zod";
-
-
 
 export const registerCareAgent = async (req: Request, res: Response) => {
   try {
@@ -18,15 +19,13 @@ export const registerCareAgent = async (req: Request, res: Response) => {
      */
     const result = await service.registerCareAgent(validatedData);
 
-
-
     /**
      * 4. Build response (do NOT expose password by default)
      */
     return res.status(201).json({
       success: true,
       message: "Care Agent registered successfully",
-      data: result.careAgent
+      data: result.careAgent,
     });
   } catch (error: any) {
     /**
@@ -45,8 +44,7 @@ export const registerCareAgent = async (req: Request, res: Response) => {
      */
     if (
       typeof error.message === "string" &&
-      (error.message.includes("already") ||
-        error.message.includes("exists"))
+      (error.message.includes("already") || error.message.includes("exists"))
     ) {
       return res.status(409).json({
         success: false,
@@ -68,7 +66,6 @@ export const registerCareAgent = async (req: Request, res: Response) => {
     });
   }
 };
-
 
 /**
  * ADMIN: Get all care agents
@@ -104,14 +101,11 @@ export const getMyProfile = async (req: any, res: Response) => {
  */
 export const updateMyProfile = async (req: any, res: Response) => {
   try {
-    const updated = await service.updateCareAgent(
-      req.user.id,
-      req.body
-    );
+    const updated = await service.updateCareAgent(req.user.id, req.body);
 
     res.json({
       message: "Profile updated successfully",
-      data: updated
+      data: updated,
     });
   } catch (err: any) {
     // If Prisma fails due to validation or missing record
@@ -144,18 +138,17 @@ export const updateAgent = async (req: Request, res: Response) => {
      */
     const updatedCareAgent = await service.updateCareAgentByAdmin(
       careAgentId,
-      validatedData
+      validatedData,
     );
 
     /**
-   * 4. Success response
-   */
+     * 4. Success response
+     */
     return res.status(200).json({
       success: true,
       message: "Care Agent updated successfully",
       data: updatedCareAgent,
     });
-
   } catch (error: any) {
     /**
      * 1. Zod validation errors
@@ -172,16 +165,27 @@ export const updateAgent = async (req: Request, res: Response) => {
      * 2. Not found errors
      */
     if (
-      typeof error.message === "string" && error.message.toLowerCase().includes("not found")
+      typeof error.message === "string" &&
+      error.message.toLowerCase().includes("not found")
     ) {
       return res.status(404).json({
         success: false,
         message: error.message,
       });
     }
+    // 3. Duplicate-value validation errors
+    if (
+      error.message === "Phone number already exists" ||
+      error.message === "Citizenship number already exists"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
     /**
-     * 3. Generic fallback
+     * 4. Generic fallback
      */
     return res.status(500).json({
       success: false,
@@ -198,7 +202,7 @@ const uuidSchema = z.uuid("Invalid care agent ID format");
 export const adminGetCareAgent = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const parsed = uuidSchema.safeParse(req.params.careAgentId);
@@ -218,12 +222,10 @@ export const adminGetCareAgent = async (
       success: true,
       data: careAgent,
     });
-
   } catch (err) {
     next(err); // delegate to your global error handler
   }
 };
-
 
 // Get assigned care receivers for care agent
 export const getMyAssignments = async (req: Request, res: Response) => {
@@ -238,22 +240,23 @@ export const getMyAssignments = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       count: assignments.length,
-      data: assignments
+      data: assignments,
     });
   } catch (err: any) {
     res.status(400).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
 
 export const deleteCareAgent = async (req: AuthRequest, res: Response) => {
-
   const careAgentId = req.params.id as string;
   try {
-    if (req.user?.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+    if (req.user?.role !== "ADMIN") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Forbidden: Admin access required" });
     }
 
     await service.deleteCareAgent(careAgentId);
@@ -263,13 +266,10 @@ export const deleteCareAgent = async (req: AuthRequest, res: Response) => {
       message: "Care Agent and associated user account have been deactivated.",
     });
   } catch (err: any) {
-    console.log(err.message)
+    console.log(err.message);
     return res.status(500).json({
       success: false,
       message: "Failed to deactivate Care Agent, try again later",
     });
   }
 };
-
-
-

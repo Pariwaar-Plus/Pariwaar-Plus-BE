@@ -64,6 +64,25 @@ export const getActiveCareReceivers = async (filter: any) => {
           country: true,
         },
       },
+      assignments: {
+        where: {
+          deletedAt: null,
+          status: "ACTIVE",
+        },
+        include: {
+          careAgent: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
     orderBy: { createdAt: "desc" },
   });

@@ -1,12 +1,20 @@
-import { AssignmentFrequency, CareAssignment, CareAssignmentSchedule, Role, User, VisitLog } from "@prisma/client";
+import {
+  AssignmentFrequency,
+  CareAssignment,
+  CareAssignmentSchedule,
+  Role,
+  User,
+  VisitLog,
+} from "@prisma/client";
 import prisma from "../../config/prisma";
-import { CreateCareAssignmentDTO, UpdateCareAssignmentDTO } from "./types/care_assignment.dto";
+import {
+  CreateCareAssignmentDTO,
+  UpdateCareAssignmentDTO,
+} from "./types/care_assignment.dto";
 import { NotFoundError } from "../../../lib/error/NotfoundError";
 import { getCareAgentByUserId } from "../care_agent/care_agent.service";
 
-export const createCareAssignment = async (
-  data: CreateCareAssignmentDTO
-) => {
+export const createCareAssignment = async (data: CreateCareAssignmentDTO) => {
   const {
     careAgentId,
     careReceiverId,
@@ -30,14 +38,13 @@ export const createCareAssignment = async (
     throw new Error("Care receiver not found");
   }
 
-
-
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const overlap = await tx.careAssignmentSchedule.findFirst({
       where: {
         assignment: {
           careAgentId,
           careReceiverId,
+          status: "ACTIVE",
         },
         startDate: { lte: newEndDate },
         endDate: { gte: newStartDate },
@@ -46,18 +53,36 @@ export const createCareAssignment = async (
 
     if (overlap) {
       throw new Error(
-        "An assignment already exists for this agent and receiver in the selected date range."
+        "An assignment already exists for this agent and receiver in the selected date range.",
       );
     }
 
-    const assignment = await tx.careAssignment.create({
-      data: {
-        careAgentId,
-        careReceiverId,
-        status: "ACTIVE",
-        notes,
+    const existingAssignment = await tx.careAssignment.findUnique({
+      where: {
+        careAgentId_careReceiverId: {
+          careAgentId,
+          careReceiverId,
+        },
       },
     });
+
+    const assignment = existingAssignment
+      ? await tx.careAssignment.update({
+          where: { id: existingAssignment.id },
+          data: {
+            status: "ACTIVE",
+            notes,
+            deletedAt: null,
+          },
+        })
+      : await tx.careAssignment.create({
+          data: {
+            careAgentId,
+            careReceiverId,
+            status: "ACTIVE",
+            notes,
+          },
+        });
 
     await tx.careAssignmentSchedule.create({
       data: {
@@ -161,29 +186,29 @@ function getNextDate(date: Date, frequency: AssignmentFrequency) {
   return d;
 }
 
-function generateNextVisits(schedule: CareAssignmentSchedule, visitedSet: Set<string>, fromDate: Date, limit: number) {
+function generateNextVisits(
+  schedule: CareAssignmentSchedule,
+  visitedSet: Set<string>,
+  fromDate: Date,
+  limit: number,
+) {
   const result = [];
 
-
   let currentDate = new Date(fromDate);
-  currentDate.setDate(currentDate.getDate() + 1)
-
+  currentDate.setDate(currentDate.getDate() + 1);
 
   let cursor = new Date(
-    Math.max(currentDate.getTime(), schedule.startDate.getTime())
+    Math.max(currentDate.getTime(), schedule.startDate.getTime()),
   );
 
-  while (
-    cursor <= (schedule.endDate ?? Infinity) &&
-    result.length < limit
-  ) {
+  while (cursor <= (schedule.endDate ?? Infinity) && result.length < limit) {
     const key = cursor.toISOString();
 
     if (!visitedSet.has(key)) {
       result.push({
         scheduledDate: new Date(cursor),
         assignmentId: schedule.assignmentId,
-        status: "SCHEDULED"
+        status: "SCHEDULED",
       });
     } else {
       //TODO
@@ -217,11 +242,10 @@ function generateNextVisit(
 
 export const getAssignmentByCareReceiver = async (
   user: any,
-  careReceiverId: string
+  careReceiverId: string,
 ) => {
   let filter: any = {};
   if (user) {
-
     if (user.role === Role.ADMIN) {
       if (careReceiverId) {
         filter.careReceiverId = careReceiverId;
@@ -229,45 +253,44 @@ export const getAssignmentByCareReceiver = async (
     }
 
     if (user.role === Role.CARE_AGENT) {
-      const careAgent = await getCareAgentByUserId(user.id)
+      const careAgent = await getCareAgentByUserId(user.id);
       if (careAgent) {
-        filter.careAgentId = careAgent.id
-        filter.status = "ACTIVE"
+        filter.careAgentId = careAgent.id;
+        filter.status = "ACTIVE";
       }
     }
-
   }
 
   const assignments = await prisma.careAssignment.findMany({
     where: {
       ...filter,
-      deletedAt: null
+      deletedAt: null,
     },
 
     include: {
-      careAgent: { select: { user: { select: { name: true, email: true } }, employeeId: true } },
+      careAgent: {
+        select: {
+          user: { select: { name: true, email: true } },
+          employeeId: true,
+        },
+      },
       careReceiver: { select: { name: true, city: true } },
     },
   });
-  const now = new Date()
+  const now = new Date();
 
   const schedules = await prisma.careAssignmentSchedule.findMany({
     where: {
       assignmentId: {
-        in: assignments.map(a => a.id),
+        in: assignments.map((a) => a.id),
       },
       deletedAt: null,
-      OR: [
-        { endDate: null },
-        { endDate: { gte: now } },
-      ],
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
     },
   });
-  const scheduleMap = new Map(
-    schedules.map(s => [s.assignmentId, s])
-  );
+  const scheduleMap = new Map(schedules.map((s) => [s.assignmentId, s]));
 
-  const assignmentIds = assignments.map(a => a.id);
+  const assignmentIds = assignments.map((a) => a.id);
 
   // const recentVisits = await prisma.$queryRaw`
   //   SELECT *
@@ -290,7 +313,7 @@ export const getAssignmentByCareReceiver = async (
   const visits = await prisma.visitLog.findMany({
     where: {
       assignmentId: {
-        in: assignments.map(a => a.id),
+        in: assignments.map((a) => a.id),
       },
       // status: "COMPLETED",
       deletedAt: null,
@@ -311,7 +334,7 @@ export const getAssignmentByCareReceiver = async (
 
     visitMap.set(visit.assignmentId, arr);
   }
-  return assignments.map(assignment => {
+  return assignments.map((assignment) => {
     const schedule = scheduleMap.get(assignment.id);
 
     return {
@@ -319,22 +342,21 @@ export const getAssignmentByCareReceiver = async (
 
       schedule: {
         frequency: schedule?.frequency,
-        nextVisit: schedule
-          ? generateNextVisit(schedule, now)
-          : null,
+        nextVisit: schedule ? generateNextVisit(schedule, now) : null,
         recentVisits: visitMap.get(assignment.id) ?? [],
         startDate: schedule?.startDate,
-        endDate: schedule?.endDate
-      }
-
+        endDate: schedule?.endDate,
+      },
     };
   });
   // const scheduleData = await getScheduleData(assignments)
   // return scheduleData
-
 };
 
-export const updateCareAssignment = async (assignmentId: string, data: UpdateCareAssignmentDTO) => {
+export const updateCareAssignment = async (
+  assignmentId: string,
+  data: UpdateCareAssignmentDTO,
+) => {
   const existing = await prisma.careAssignment.findUnique({
     where: { id: assignmentId },
     select: { id: true, deletedAt: true },
@@ -344,19 +366,14 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
     throw new NotFoundError("Care assignment not found");
   }
 
-
   const result = await prisma.$transaction(async (tx) => {
-
-    let resultSchedule
+    let resultSchedule;
 
     const schedule = await tx.careAssignmentSchedule.findFirst({
       where: {
         assignmentId,
         deletedAt: null,
-        OR: [
-          { endDate: null },
-          { endDate: { gte: new Date() } },
-        ],
+        OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
       },
     });
 
@@ -364,13 +381,8 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
       throw new NotFoundError("Active schedule not found");
     }
 
-
     // frequency changed
-    if (
-      data.frequency &&
-      data.frequency !== schedule.frequency
-    ) {
-
+    if (data.frequency && data.frequency !== schedule.frequency) {
       await tx.careAssignmentSchedule.update({
         where: {
           id: schedule.id,
@@ -380,14 +392,11 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
         },
       });
 
-
       resultSchedule = await tx.careAssignmentSchedule.create({
         data: {
           assignmentId,
           startDate: data.startDate ?? new Date(),
-          endDate: data.endDate
-            ? new Date(data.endDate)
-            : null,
+          endDate: data.endDate ? new Date(data.endDate) : null,
           frequency: data.frequency,
         },
       });
@@ -396,20 +405,17 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
         where: {
           assignmentId,
           scheduledAt: {
-            gte: new Date()
-          }
+            gte: new Date(),
+          },
         },
         data: {
-          deletedAt: new Date()
-        }
-      })
-
-
+          deletedAt: new Date(),
+        },
+      });
     }
 
     // only end date changed
     else if (data.endDate !== undefined) {
-
       resultSchedule = await tx.careAssignmentSchedule.update({
         where: {
           id: schedule.id,
@@ -419,7 +425,6 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
         },
       });
 
-
       await tx.visitLog.updateMany({
         where: {
           assignmentId,
@@ -428,14 +433,10 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
           },
         },
         data: {
-          deletedAt: new Date()
-        }
-      })
-
-
-
+          deletedAt: new Date(),
+        },
+      });
     }
-
 
     // assignment fields
     // if (data.notes !== undefined) {
@@ -448,15 +449,11 @@ export const updateCareAssignment = async (assignmentId: string, data: UpdateCar
       },
     });
     // }
-    return { ...updated, schedule: resultSchedule }
+    return { ...updated, schedule: resultSchedule };
   });
 
-
-
-
   return result;
-}
-
+};
 
 export const deleteCareAssignmment = async (careAssignmentId: string) => {
   // 1. Verify agent existence and get userId
@@ -475,6 +472,7 @@ export const deleteCareAssignmment = async (careAssignmentId: string) => {
       },
       data: {
         deletedAt: now,
+        status: "INACTIVE",
       },
     });
 
@@ -487,7 +485,5 @@ export const deleteCareAssignmment = async (careAssignmentId: string) => {
         deletedAt: now,
       },
     });
-
-
   });
 };

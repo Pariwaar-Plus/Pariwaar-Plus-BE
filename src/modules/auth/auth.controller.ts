@@ -2,12 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import * as authService from "./auth.service";
 import { AuthRequest } from "../../@types";
 
-
 export const login = async (req: Request, res: Response) => {
   try {
     const { accessToken, refreshToken, user } = await authService.login(
       req.body.email,
-      req.body.password
+      req.body.password,
     );
 
     // Set refresh token in a secure cookie
@@ -72,8 +71,8 @@ export const logout = async (req: Request, res: Response) => {
 export const getMe = async (req: any, res: Response) => {
   try {
     // req.user was populated by your authMiddleware
-    const userId = req.user.id; 
-    
+    const userId = req.user.id;
+
     const user = await authService.getMe(userId);
     res.json(user);
   } catch (e: any) {
@@ -82,20 +81,19 @@ export const getMe = async (req: any, res: Response) => {
 };
 
 export const forgotPassword = async (req: Request, res: Response) => {
-    const { email } = req.body;
+  const { email } = req.body;
 
-    await authService.forgotPassword(email);
+  await authService.forgotPassword(email);
 
-    return res.json({
-        message:
-            "If an account exists, a password reset link has been sent."
-    });
+  return res.json({
+    message: "If an account exists, a password reset link has been sent.",
+  });
 };
 
 export const validateResetPasswordToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { token } = req.body;
@@ -112,18 +110,18 @@ export const validateResetPasswordToken = async (
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { token,password } = req.body;
+    const { token, password } = req.body;
 
-    const result = await authService.resetPassword(token,password);
+    const result = await authService.resetPassword(token, password);
 
     res.status(200).json({
       success: true,
-      message: result.message
+      message: result.message,
     });
   } catch (err: any) {
     res.status(400).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
@@ -137,12 +135,12 @@ export const changePassword = async (req: Request, res: Response) => {
 
     res.status(200).json({
       success: true,
-      message: result.message
+      message: result.message,
     });
   } catch (err: any) {
     res.status(400).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
